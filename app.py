@@ -183,7 +183,7 @@ def sidebar_controls(df):
         st.divider()
 
         # File uploader
-        with st.expander("📂 Add New Period Files", expanded=False):
+        with st.expander("📂 Add New Period Files", expanded=True):
             st.caption("Drop a new P&L xlsx here to add it to the dataset. "
                        "Files are saved to the data/ folder.")
             uploaded = st.file_uploader(
@@ -845,10 +845,34 @@ def main():
     files = sorted(glob.glob(str(DATA_DIR / "7BREW Income Statement Side By Side PTD All*.xlsx")))
 
     if not files:
+        # Render sidebar with uploader even when no data exists
+        with st.sidebar:
+            logo_path = Path(__file__).parent / "assets" / "logo.png"
+            if logo_path.exists():
+                st.image(str(logo_path), width=180)
+            else:
+                st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
+            st.divider()
+            st.markdown("### 📂 Upload Period Files")
+            st.caption("Drop your P&L Excel files here to get started.")
+            uploaded = st.file_uploader(
+                "Upload Period File",
+                type=["xlsx"],
+                accept_multiple_files=True,
+                label_visibility="collapsed",
+            )
+            if uploaded:
+                for f in uploaded:
+                    dest = DATA_DIR / f.name
+                    if not dest.exists():
+                        dest.write_bytes(f.read())
+                        st.success(f"Saved {f.name}")
+                st.rerun()
+
         st.markdown('<div class="brew-header"><h1>7CREW Enterprises | P&L Dashboard</h1>'
                     '<p>No period files found — upload your first file to get started</p></div>',
                     unsafe_allow_html=True)
-        st.info("👈 Use the sidebar file uploader to add your P&L Excel files, then refresh.")
+        st.info("👈 Use the sidebar on the left to upload your P&L Excel files.")
         return
 
     # Load data
