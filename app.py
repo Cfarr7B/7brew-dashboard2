@@ -674,6 +674,13 @@ def tab_ebitda(df, periods):
 # ── Tab: Cohort Analysis ──────────────────────────────────────────────────────
 
 def tab_cohort(df, periods):
+    # Network averages used as reference lines in ramp charts
+    _net_avg_ep = safe_pct(df['Store Level EBITDA'].sum(), df['Net Sales'].sum())
+    _q4_avg_ep  = safe_pct(
+        df[df['cohort'].isin(Q4_COHORTS)]['Store Level EBITDA'].sum(),
+        df[df['cohort'].isin(Q4_COHORTS)]['Net Sales'].sum()
+    )
+
     sorted_periods = sorted(periods,
                             key=lambda p: df[df['period_label']==p]['sort_key'].iloc[0])
     all_cohorts = ['Legacy (Pre-Data)'] + sorted(
