@@ -10,6 +10,40 @@ import os
 import glob
 from datetime import datetime
 
+STAND_DATES_FILE = '7Crew_Stand_Dates.xlsx'
+
+def load_stand_dates(folder):
+    """
+    Load the stand dates reference file.
+    Returns:
+      - upcoming_ids: set of stand_id strings for stands not yet open
+      - opening_dates: dict of stand_id -> opening date string (for future use)
+    """
+    path = os.path.join(folder, STAND_DATES_FILE)
+    if not os.path.exists(path):
+        return set(), {}
+
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb.active
+
+    upcoming_ids = set()
+    opening_dates = {}
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        stand_raw, region, open_date = (row[0], row[1], row[2]) if len(row) >= 3 else (row[0], None, None)
+        if not stand_raw:
+            continue
+        # Extract stand number from format like "Lubbock (#134)" → "000134"
+        m = re.search(r'#(\d+)', str(stand_raw))
+        if m:
+            stand_id = m.group(1).zfill(6)
+            upcoming_ids.add(stand_id)
+            if open_date:
+                opening_dates[stand_id] = str(open_date)
+
+    print(f"  Stand dates file: {len(upcoming_ids)} upcoming stands identified")
+    return upcoming_ids, opening_dates
+
 METRIC_ROWS = {
     'Gross Sales':              16,
     'Net Sales':                22,
@@ -155,12 +189,19 @@ def assign_cohorts(df):
     # Find first sort_key for each stand
     first_sk = df.groupby('stand_id')['sort_key'].min()
 
+    def period_to_quarter(pn):
+        if pn <= 3:   return 1
+        if pn <= 6:   return 2
+        if pn <= 9:   return 3
+        return 4
+
     def cohort_label(sk):
         if sk == min_sk:
             return "Legacy (Pre-Data)"
         yr = sk // 100
         pn = sk % 100
-        return f"P{pn}'{str(yr)[-2:]}"
+        q = period_to_quarter(pn)
+        return f"Q{q}'{str(yr)[-2:]}"
 
     cohort_map = {sid: cohort_label(sk) for sid, sk in first_sk.items()}
     df['cohort'] = df['stand_id'].map(cohort_map)
@@ -194,6 +235,26 @@ def build_dataset(input_folder, file_pattern='7BREW Income Statement Side By Sid
     """Full pipeline: extract → cohorts → derived metrics → return DataFrame."""
     print(f"Scanning: {input_folder}")
     df = extract_all(input_folder, file_pattern)
+
+    # Load stand dates reference file (source of record for upcoming/future stands)
+    upcoming_ids, opening_dates = load_stand_dates(input_folder)
+
+    # Exclude upcoming stands by stand_id from the reference file
+    if upcoming_ids:
+        before = len(df)
+        df = df[~df['stand_id'].isin(upcoming_ids)].reset_index(drop=True)
+        print(f"  Excluded {before - len(df)} records for {len(upcoming_ids)} upcoming stands")
+
+    # Also drop any remaining stand-period with Net Sales <= $50K (safety net)
+    before = len(df)
+    df = df[df['Net Sales'] > 50_000].reset_index(drop=True)
+    if before > len(df):
+        print(f"  Filtered out {before - len(df)} additional records with Net Sales ≤ $50K")
+
+    # Store opening dates on the dataframe for future use
+    if opening_dates:
+        df['scheduled_open_date'] = df['stand_id'].map(opening_dates)
+
     df = assign_cohorts(df)
     df = add_derived_metrics(df)
     print(f"Total records: {len(df)} ({df['stand_id'].nunique()} unique stands, {df['period_label'].nunique()} periods)")
