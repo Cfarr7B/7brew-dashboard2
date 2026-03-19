@@ -250,17 +250,23 @@ def tab_ceo(df, ldf, periods, selected_period):
     net_labor    = safe_pct(ldf['Total Labor & Benefits'].sum(), total_ns)
     auv          = mature['Net Sales'].mean() if not mature.empty else 0
 
+    # Network averages across all periods (used as benchmarks throughout)
+    all_ns          = df['Net Sales'].sum()
+    avg_ebitda_all  = safe_pct(df['Store Level EBITDA'].sum(), all_ns)
+    avg_cogs_all    = safe_pct(df['COGS'].sum(), all_ns)
+    avg_labor_all   = safe_pct(df['Total Labor & Benefits'].sum(), all_ns)
+
     # KPI row
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     cards = [
         (c1, "Total Stands",   str(total_stands),  f"vs {fdf['stand_id'].nunique()} in {first_period}", "kpi-white"),
         (c2, "Network Sales",  fmt_dollar(total_ns, mm=True), f"Avg Mature Unit {fmt_dollar(auv)}", "kpi-red"),
-        (c3, "Store EBITDA %", fmt_pct(net_ebitda), "Target ≥ 15%",
-         "kpi-good" if (net_ebitda or 0)>=0.15 else "kpi-bad"),
-        (c4, "COGS %",         fmt_pct(net_cogs),  "Target ≤ 30%",
-         "kpi-good" if (net_cogs or 1)<=0.30 else "kpi-bad"),
-        (c5, "Labor %",        fmt_pct(net_labor), "Target ≤ 35%",
-         "kpi-good" if (net_labor or 1)<=0.35 else "kpi-bad"),
+        (c3, "Store EBITDA %", fmt_pct(net_ebitda), f"Network Avg {fmt_pct(avg_ebitda_all)}",
+         "kpi-good" if (net_ebitda or 0) >= (avg_ebitda_all or 0) else "kpi-bad"),
+        (c4, "COGS %",         fmt_pct(net_cogs),  f"Network Avg {fmt_pct(avg_cogs_all)}",
+         "kpi-good" if (net_cogs or 1) <= (avg_cogs_all or 1) else "kpi-bad"),
+        (c5, "Labor %",        fmt_pct(net_labor), f"Network Avg {fmt_pct(avg_labor_all)}",
+         "kpi-good" if (net_labor or 1) <= (avg_labor_all or 1) else "kpi-bad"),
         (c6, "Ramp Phase",     f"{int(ldf['is_ramp'].sum())} stands", "< 4 periods open", "kpi-warn"),
     ]
     for col, label, val, sub, cls in cards:
@@ -316,8 +322,8 @@ def tab_ceo(df, ldf, periods, selected_period):
                          mode="lines+markers",
                          line=dict(color=RED, width=3),
                          marker=dict(size=8))
-        fig2.add_hline(y=0.15, line_dash="dash",
-                       line_color=GOOD_TXT, annotation_text="15% Target")
+        fig2.add_hline(y=avg_ebitda_all or 0, line_dash="dash",
+                       line_color=GOOD_TXT, annotation_text=f"Network Avg {fmt_pct(avg_ebitda_all)}")
         fig2.update_layout(
             template="plotly_dark",
             paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
@@ -413,12 +419,18 @@ def tab_coo(df, ldf, periods, selected_period):
     st.dataframe(tbl, hide_index=True, use_container_width=True, height=500)
 
     # ── COGS & Labor distribution ────────────────────────────────────────────
+    # Compute network averages for reference lines
+    _ns = ldf2['Net Sales'].replace(0, np.nan)
+    avg_cogs   = (ldf2['COGS'] / _ns).mean()
+    avg_labor  = (ldf2['Total Labor & Benefits'] / _ns).mean()
+    avg_ebitda = (ldf2['Store Level EBITDA'] / _ns).mean()
+
     section("Metric Distribution")
     c1, c2, c3 = st.columns(3)
     for col, col_name, target, hb, title in [
-        (c1, 'cogs_pct',  0.30, False, "COGS % Distribution"),
-        (c2, 'labor_pct', 0.35, False, "Labor % Distribution"),
-        (c3, 'ebitda_pct',0.15, True,  "EBITDA % Distribution"),
+        (c1, 'cogs_pct',  avg_cogs,   False, "COGS % Distribution"),
+        (c2, 'labor_pct', avg_labor,  False, "Labor % Distribution"),
+        (c3, 'ebitda_pct',avg_ebitda, True,  "EBITDA % Distribution"),
     ]:
         with col:
             vals = ldf2[col_name].dropna()
@@ -426,7 +438,7 @@ def tab_coo(df, ldf, periods, selected_period):
             fig.add_histogram(x=vals, nbinsx=20, marker_color=RED,
                               marker_line_color=BLACK, marker_line_width=1)
             fig.add_vline(x=target, line_dash="dash", line_color=GOOD_TXT,
-                          annotation_text=f"Target {'≥' if hb else '≤'} {target:.0%}")
+                          annotation_text=f"Avg {target:.1%}" if target else "")
             fig.update_layout(
                 title=title, template="plotly_dark",
                 paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
@@ -598,8 +610,15 @@ def tab_q4(df, ldf, periods, selected_period):
 # ── Tab: EBITDA Trend ─────────────────────────────────────────────────────────
 
 def tab_ebitda(df, periods):
+    # Network average EBITDA % across all data (used as benchmark)
+    _net_avg_ep = safe_pct(df['Store Level EBITDA'].sum(), df['Net Sales'].sum())
+    _q4_avg_ep  = safe_pct(
+        df[df['cohort'].isin(Q4_COHORTS)]['Store Level EBITDA'].sum(),
+        df[df['cohort'].isin(Q4_COHORTS)]['Net Sales'].sum()
+    )
+
     section("Store EBITDA % by Stand Across All Periods")
-    st.caption("🟢 ≥15%  |  🟡 10–14%  |  🔴 <10%  |  🔵 Q4 Watch (benchmark ≥10%)")
+    st.caption(f"🟢 ≥ Network Avg {fmt_pct(_net_avg_ep)}  |  🟡 Within 5%  |  🔴 Below  |  🔵 Q4 Watch (Q4 class avg {fmt_pct(_q4_avg_ep)})")
 
     sorted_periods = sorted(periods,
                             key=lambda p: df[df['period_label']==p]['sort_key'].iloc[0])
@@ -631,9 +650,10 @@ def tab_ebitda(df, periods):
     def color_cell(val, is_q4=False):
         if pd.isna(val) or val is None:
             return "background-color:#2D2D2D;color:#666"
-        thr = 0.10 if is_q4 else 0.15
-        if val >= thr:     return f"background-color:{GOOD_BG};color:{GOOD_TXT}"
-        if val >= thr-0.05:return f"background-color:{WARN_BG};color:{WARN_TXT}"
+        thr = _q4_avg_ep if is_q4 else _net_avg_ep
+        thr = thr or 0.10
+        if val >= thr:          return f"background-color:{GOOD_BG};color:{GOOD_TXT}"
+        if val >= thr - 0.05:   return f"background-color:{WARN_BG};color:{WARN_TXT}"
         return f"background-color:{BAD_BG};color:{BAD_TXT}"
 
     def fmt_val(v):
@@ -709,10 +729,10 @@ def tab_cohort(df, periods):
             marker=dict(size=6 if cohort=='Legacy (Pre-Data)' else 4),
         )
 
-    fig2.add_hline(y=0.15, line_dash="dash", line_color=GOOD_TXT,
-                   annotation_text="15% Target (Mature)")
-    fig2.add_hline(y=0.10, line_dash="dot",  line_color=WATCH_TXT,
-                   annotation_text="10% Target (Q4)")
+    fig2.add_hline(y=_net_avg_ep or 0, line_dash="dash", line_color=GOOD_TXT,
+                   annotation_text=f"Network Avg {fmt_pct(_net_avg_ep)} (Mature)")
+    fig2.add_hline(y=_q4_avg_ep or 0, line_dash="dot",  line_color=WATCH_TXT,
+                   annotation_text=f"Q4 Class Avg {fmt_pct(_q4_avg_ep)}")
     fig2.update_layout(
         template="plotly_dark",
         paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
