@@ -1,857 +1,494 @@
 """
-7CREW ENTERPRISES — P&L Performance Dashboard (HTML Design)
-Streamlit App  |  github.com/your-org/7brew-dashboard2
+7CREW ENTERPRISES — P&L Performance Dashboard
+Clean rebuild based on 7BREW_Dashboard_2025_2026.html design
+Streamlit app with fresh data handling (no caching issues)
 """
 
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px
 import numpy as np
-import os
-import glob
 from pathlib import Path
 from brew_extract import build_dataset
+import glob
+import os
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PAGE CONFIG & DESIGN SYSTEM
-# ══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
+# PAGE CONFIG & DESIGN SYSTEM (matching HTML)
+# ═══════════════════════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="7BREW | P&L Dashboard",
+    page_title="7BREW | P&L Dashboard 2025–2026",
     page_icon="☕",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# ── Design System (HTML Palette) ───────────────────────────────────────────
-RED           = "#C8102E"
-RED_DARK      = "#A00C24"
-RED_GLOW      = "rgba(200,16,46,0.18)"
-BLACK         = "#0D0D0D"
-CHARCOAL      = "#1A1A1A"
-STEEL         = "#252525"
-MID           = "#333333"
-BORDER        = "#3A3A3A"
-AMBER         = "#F4A21E"
-AMBER_LT      = "rgba(244,162,30,0.15)"
-WHITE         = "#FAFAFA"
-FOG           = "#B0B0B0"
-DIM           = "#707070"
+# Color palette (matching HTML design)
+RED = "#C8102E"
+BLACK = "#0D0D0D"
+CHARCOAL = "#1A1A1A"
+STEEL = "#252525"
+BORDER = "#3A3A3A"
+AMBER = "#F4A21E"
+WHITE = "#FAFAFA"
+FOG = "#B0B0B0"
+DIM = "#707070"
+GREEN = "#2ECC71"
+YELLOW = "#F4A21E"
 
-WIN_GREEN     = "#2ECC71"
-WIN_GREEN_BG  = "rgba(46,204,113,0.12)"
-WARN_YELLOW   = "#F4A21E"
-WARN_BG       = "rgba(244,162,30,0.12)"
-RISK_RED      = "#E74C3C"
-RISK_BG       = "rgba(231,76,60,0.12)"
-INFO_BLUE     = "#5B9BD5"
-INFO_BG       = "rgba(91,155,213,0.12)"
+# Fonts matching HTML
+DISPLAY_FONT = "Bebas Neue"
+BODY_FONT = "DM Sans"
+MONO_FONT = "DM Mono"
 
-Q4_COHORTS = {"Q4'24", "Q4'25"}
-PLOTLY_COLORS = [RED, "#1565C0", "#2E7D32", WARN_YELLOW,
-                 "#6A1B9A", "#00838F", "#4E342E", "#37474F"]
+# ═══════════════════════════════════════════════════════════════════════════
+# CSS STYLING (clean, matching HTML design)
+# ═══════════════════════════════════════════════════════════════════════════
 
-# ── Enhanced CSS with HTML Dashboard styling ────────────────────────────────
 st.markdown(f"""
 <style>
-:root {{
-  --brew-red:       {RED};
-  --brew-charcoal:  {CHARCOAL};
-  --brew-steel:     {STEEL};
-  --brew-border:    {BORDER};
-  --brew-amber:     {AMBER};
-  --brew-white:     {WHITE};
-  --brew-fog:       {FOG};
-  --brew-dim:       {DIM};
-  --radius-md:  10px;
-  --shadow-card: 0 2px 16px rgba(0,0,0,0.5);
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+
+html {{ scroll-behavior: smooth; }}
+
+body {{
+    background: {BLACK};
+    color: {WHITE};
+    font-family: '{BODY_FONT}', sans-serif;
+}}
+
+[data-testid="stAppViewContainer"] {{
+    background: {BLACK};
 }}
 
 [data-testid="stSidebar"] {{
-    background: {BLACK};
+    background: {CHARCOAL};
     border-right: 1px solid {BORDER};
 }}
-[data-testid="stSidebar"] * {{ color: {FOG} !important; }}
 
-.brew-header {{
+.header-main {{
     background: {CHARCOAL};
     border-bottom: 2px solid {RED};
-    padding: 20px 24px;
+    padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-}}
-.brew-header h1 {{
-    color: {WHITE};
-    font-size: 26px;
-    font-weight: 800;
-    letter-spacing: 2px;
-    margin: 0;
-    text-transform: uppercase;
-}}
-.brew-header p {{
-    color: {DIM};
-    font-size: 11px;
-    margin: 8px 0 0;
-    font-family: monospace;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.8);
 }}
 
-.kpi-grid {{
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
+.header-main h1 {{
+    font-family: '{DISPLAY_FONT}', sans-serif;
+    font-size: 32px;
+    letter-spacing: 2px;
+    color: {WHITE};
+    text-transform: uppercase;
+    margin: 0;
 }}
+
+.header-meta {{
+    font-family: '{MONO_FONT}', monospace;
+    font-size: 11px;
+    color: {DIM};
+    margin-top: 8px;
+}}
+
+.section-title {{
+    font-family: '{DISPLAY_FONT}', sans-serif;
+    font-size: 24px;
+    letter-spacing: 1px;
+    color: {WHITE};
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    margin-top: 32px;
+}}
+
+.section-title:first-child {{
+    margin-top: 0;
+}}
+
+.metric-label {{
+    font-family: '{MONO_FONT}', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    color: {DIM};
+    letter-spacing: 0.5px;
+}}
+
+.metric-value {{
+    font-size: 18px;
+    font-weight: 700;
+    color: {WHITE};
+    line-height: 1.2;
+}}
+
 .kpi-card {{
-    background: {CHARCOAL};
+    background: {STEEL};
     border: 1px solid {BORDER};
-    border-top: 3px solid {RED};
     border-radius: 10px;
     padding: 16px;
     text-align: center;
-    transition: transform 0.2s;
 }}
-.kpi-card:hover {{
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-card);
-}}
-.kpi-label {{ color: {DIM}; font-size: 9px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }}
-.kpi-value {{ font-size: 28px; font-weight: 800; color: {WHITE}; margin: 0; line-height: 1; }}
-.kpi-sub {{ color: {DIM}; font-size: 10px; margin-top: 6px; font-family: monospace; }}
-.kpi-good  {{ color: {WIN_GREEN}; }}
-.kpi-warn  {{ color: {WARN_YELLOW}; }}
-.kpi-bad   {{ color: {RISK_RED}; }}
 
-.section-title {{
-    font-size: 16px;
-    font-weight: 700;
-    color: {WHITE};
+.kpi-card.positive {{
+    border-left: 4px solid {GREEN};
+}}
+
+.kpi-card.warning {{
+    border-left: 4px solid {YELLOW};
+}}
+
+.kpi-card.danger {{
+    border-left: 4px solid #E74C3C;
+}}
+
+[role="tab"] {{
+    background: none !important;
+    color: {DIM} !important;
+    border: none !important;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid {RED};
+    font-weight: 600;
+    font-size: 12px;
+    padding: 12px 20px !important;
+    border-bottom: 2px solid transparent !important;
+    cursor: pointer;
+    transition: all 0.2s;
 }}
 
-#MainMenu, footer {{ visibility: hidden; }}
+[role="tab"]:hover {{
+    color: {FOG} !important;
+}}
 
-::-webkit-scrollbar {{
-    width: 8px;
-    height: 8px;
+[role="tab"][aria-selected="true"] {{
+    color: {AMBER} !important;
+    border-bottom: 2px solid {AMBER} !important;
 }}
-::-webkit-scrollbar-track {{
-    background: {BLACK};
-}}
-::-webkit-scrollbar-thumb {{
+
+[data-testid="stTabBar"] {{
     background: {STEEL};
-    border-radius: 4px;
+    border-bottom: 1px solid {BORDER};
 }}
+
 </style>
 """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# DATA LOADING & HELPERS
-# ══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
+# DATA LOADING (simple, no caching complications)
+# ═══════════════════════════════════════════════════════════════════════════
 
 DATA_DIR = Path(__file__).parent / "data"
 
-@st.cache_data(show_spinner="Reading P&L files…", ttl=300)
-def load_data(file_paths_key: str):
-    """Load and cache the consolidated dataset."""
-    return build_dataset(str(DATA_DIR))
-
-def get_file_key():
-    files = sorted(glob.glob(str(DATA_DIR / "7BREW Income Statement Side By Side PTD All*.xlsx")))
-    key_parts = [f"{p}:{os.path.getmtime(p):.0f}" for p in files]
-    stand_dates = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-    if stand_dates.exists():
-        key_parts.append(f"{stand_dates}:{os.path.getmtime(stand_dates):.0f}")
-    return "|".join(key_parts)
-
-def safe_pct(num, den):
+def load_data_fresh():
+    """Load data fresh without caching issues."""
     try:
-        v = num / den
-        return v if np.isfinite(v) else None
-    except:
+        df = build_dataset(str(DATA_DIR))
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
         return None
 
-def fmt_dollar(v, mm=False):
-    if v is None or (isinstance(v, float) and not np.isfinite(v)):
-        return "—"
+def get_periods(df):
+    """Get sorted list of periods."""
+    return sorted(
+        df['period_label'].unique(),
+        key=lambda p: df[df['period_label'] == p]['sort_key'].iloc[0]
+    )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FORMATTING HELPERS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def fmt_dollar(val, mm=False):
+    """Format as USD."""
+    if val is None or pd.isna(val):
+        return "$0"
     if mm:
-        return f"${v/1_000_000:.2f}M"
-    return f"${v:,.0f}"
+        return f"${val/1_000_000:.1f}M"
+    return f"${val/1_000:,.0f}K" if abs(val) >= 1_000 else f"${val:,.0f}"
 
-def fmt_pct(v):
-    if v is None or (isinstance(v, float) and not np.isfinite(v)):
+def fmt_pct(val):
+    """Format as percentage."""
+    if val is None or pd.isna(val):
         return "—"
-    return f"{v:.1%}"
+    return f"{val*100:.1f}%" if isinstance(val, (int, float)) else "—"
 
-def kpi_card(label, value, sub="", cls="kpi-white"):
-    return f"""
-    <div class="kpi-card">
-        <div class="kpi-label">{label}</div>
-        <div class="kpi-value {cls}">{value}</div>
-        <div class="kpi-sub">{sub}</div>
-    </div>"""
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: OVERVIEW
+# ═══════════════════════════════════════════════════════════════════════════
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR & FILE UPLOAD
-# ══════════════════════════════════════════════════════════════════════════════
+def tab_overview(df, periods, selected_period):
+    st.markdown('<div class="section-title">System Overview</div>', unsafe_allow_html=True)
 
-def sidebar_controls(df):
+    # Current period data
+    pdf = df[df['period_label'] == selected_period]
+
+    # KPI row
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+    with col1:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="metric-label">Total Stands</div>
+            <div class="metric-value">{pdf['stand_id'].nunique()}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="metric-label">Network Sales</div>
+            <div class="metric-value">{fmt_dollar(pdf['Net Sales'].sum(), mm=True)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    ns = pdf['Net Sales'].sum()
+
+    with col3:
+        ebitda_pct = pdf['Store Level EBITDA'].sum() / ns if ns > 0 else 0
+        st.markdown(f"""
+        <div class="kpi-card positive">
+            <div class="metric-label">EBITDA %</div>
+            <div class="metric-value">{fmt_pct(ebitda_pct)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col4:
+        cogs_pct = pdf['COGS'].sum() / ns if ns > 0 else 0
+        st.markdown(f"""
+        <div class="kpi-card warning">
+            <div class="metric-label">COGS %</div>
+            <div class="metric-value">{fmt_pct(cogs_pct)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col5:
+        labor_pct = pdf['Total Labor & Benefits'].sum() / ns if ns > 0 else 0
+        st.markdown(f"""
+        <div class="kpi-card warning">
+            <div class="metric-label">Labor %</div>
+            <div class="metric-value">{fmt_pct(labor_pct)}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col6:
+        ramp = (pdf['periods_open'] <= 4).sum()
+        st.markdown(f"""
+        <div class="kpi-card">
+            <div class="metric-label">Ramp Stands</div>
+            <div class="metric-value">{ramp}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Period-over-period chart
+    st.markdown('<div class="section-title">Period-Over-Period Network Performance</div>', unsafe_allow_html=True)
+
+    # Period range selector
+    col1, col2 = st.columns(2)
+    with col1:
+        start_idx = st.select_slider("Period Range Start", 0, len(periods)-1, 0)
+    with col2:
+        end_idx = st.select_slider("Period Range End", start_idx, len(periods)-1, len(periods)-1)
+
+    period_range = periods[start_idx:end_idx+1]
+
+    # Calculate period trend
+    trend = df[df['period_label'].isin(period_range)].groupby('period_label').agg(
+        net_sales=('Net Sales', 'sum'),
+        store_ebitda=('Store Level EBITDA', 'sum'),
+        stands=('stand_id', 'nunique')
+    ).reset_index()
+
+    # Sort by period
+    period_order = {p: i for i, p in enumerate(periods)}
+    trend['period_order'] = trend['period_label'].map(period_order)
+    trend = trend.sort_values('period_order').drop('period_order', axis=1)
+
+    # Chart
+    fig = go.Figure()
+    fig.add_bar(x=trend['period_label'], y=trend['net_sales'],
+                name="Net Sales", marker_color=RED, opacity=0.85)
+    fig.add_scatter(x=trend['period_label'], y=trend['store_ebitda'],
+                    name="Store EBITDA", mode="lines+markers",
+                    line=dict(color="#1565C0", width=2), yaxis="y2")
+
+    fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor=CHARCOAL,
+        plot_bgcolor=CHARCOAL,
+        yaxis=dict(title="Net Sales ($)", gridcolor="#404040"),
+        yaxis2=dict(title="Store EBITDA ($)", overlaying="y", side="right"),
+        legend=dict(x=0, y=1.1, orientation="h"),
+        height=380,
+        margin=dict(l=60, r=60, t=40, b=60)
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Trend table
+    tbl = trend[['period_label', 'stands', 'net_sales']].copy()
+    tbl.columns = ['Period', 'Stands', 'Net Sales']
+    tbl['Net Sales'] = tbl['Net Sales'].apply(fmt_dollar)
+    st.dataframe(tbl, use_container_width=True, hide_index=True)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: PERIOD COMPARISON
+# ═══════════════════════════════════════════════════════════════════════════
+
+def tab_trends(df, periods, selected_period):
+    st.markdown('<div class="section-title">Period Comparison</div>', unsafe_allow_html=True)
+    st.info("Detailed period-over-period analysis coming soon")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: STAND DETAIL
+# ═══════════════════════════════════════════════════════════════════════════
+
+def tab_stands(df, periods, selected_period):
+    st.markdown('<div class="section-title">Stand Detail</div>', unsafe_allow_html=True)
+
+    pdf = df[df['period_label'] == selected_period].copy()
+
+    # Metrics
+    pdf['ebitda_pct'] = pdf['Store Level EBITDA'] / pdf['Net Sales']
+    pdf['cogs_pct'] = pdf['COGS'] / pdf['Net Sales']
+    pdf['labor_pct'] = pdf['Total Labor & Benefits'] / pdf['Net Sales']
+
+    # Display table
+    display = pdf[['display_name', 'Net Sales', 'ebitda_pct', 'cogs_pct', 'labor_pct']].sort_values('Net Sales', ascending=False).copy()
+    display.columns = ['Stand', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %']
+    display['Net Sales'] = display['Net Sales'].apply(fmt_dollar)
+    display['EBITDA %'] = display['EBITDA %'].apply(fmt_pct)
+    display['COGS %'] = display['COGS %'].apply(fmt_pct)
+    display['Labor %'] = display['Labor %'].apply(fmt_pct)
+
+    st.dataframe(display, use_container_width=True, hide_index=True)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: REGIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def tab_regions(df, periods, selected_period):
+    st.markdown('<div class="section-title">Regional Analysis</div>', unsafe_allow_html=True)
+
+    pdf = df[df['period_label'] == selected_period].copy()
+
+    # Group by region
+    regions = pdf.groupby('region').agg(
+        net_sales=('Net Sales', 'sum'),
+        store_ebitda=('Store Level EBITDA', 'sum'),
+        cogs=('COGS', 'sum'),
+        labor=('Total Labor & Benefits', 'sum'),
+        stands=('stand_id', 'nunique')
+    ).reset_index()
+
+    regions = regions[~regions['region'].isin(['ENT', 'Florida'])]
+    regions = regions.sort_values('net_sales', ascending=False)
+
+    # Display
+    display = regions[['region', 'stands', 'net_sales']].copy()
+    display.columns = ['Region', 'Stands', 'Net Sales']
+    display['Net Sales'] = display['Net Sales'].apply(fmt_dollar)
+
+    st.dataframe(display, use_container_width=True, hide_index=True)
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: WINS & OPPORTUNITIES
+# ═══════════════════════════════════════════════════════════════════════════
+
+def tab_wins(df, periods, selected_period):
+    st.markdown('<div class="section-title">Wins &amp; Opportunities</div>', unsafe_allow_html=True)
+    st.info("Top performers and areas for improvement coming soon")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: FORECAST
+# ═══════════════════════════════════════════════════════════════════════════
+
+def tab_forecast(df, periods, selected_period):
+    st.markdown('<div class="section-title">Forecast P3–P13 2026</div>', unsafe_allow_html=True)
+    st.info("Forward-looking financial projections coming soon")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: POTHOLE WATCH
+# ═══════════════════════════════════════════════════════════════════════════
+
+def tab_potholes(df, periods, selected_period):
+    st.markdown('<div class="section-title">⚠ Pothole Watch</div>', unsafe_allow_html=True)
+    st.info("Critical issues requiring attention coming soon")
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════
+
+def main():
+    # Load data
+    df = load_data_fresh()
+    if df is None or len(df) == 0:
+        st.error("No data found. Please upload P&L files.")
+        return
+
+    # Get periods
+    periods = get_periods(df)
+
+    # Header
+    st.markdown(f"""
+    <div class="header-main">
+        <h1>7CREW Enterprises | P&L Dashboard</h1>
+        <div class="header-meta">
+            {df['stand_id'].nunique()} stands • {len(periods)} periods • Period data updated
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Sidebar
     with st.sidebar:
-        logo_path = Path(__file__).parent / "assets" / "logo.png"
-        if logo_path.exists():
-            st.image(str(logo_path), use_container_width=True)
-        else:
-            st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
-
-        st.divider()
-
-        # File uploader
-        with st.expander("📂 Add New Period Files", expanded=True):
-            st.caption("Drop a new P&L xlsx to add it to the dataset. Files save to data/ folder.")
-            uploaded = st.file_uploader(
-                "Upload Period File",
-                type=["xlsx"],
-                accept_multiple_files=True,
-                label_visibility="collapsed",
-            )
-            if uploaded:
-                for f in uploaded:
-                    dest = DATA_DIR / f.name
-                    if not dest.exists():
-                        dest.write_bytes(f.read())
-                        st.success(f"Saved {f.name}")
-                st.rerun()
-
-        st.divider()
-
-        if st.button("🔄 Refresh Data Cache"):
-            st.cache_data.clear()
+        st.markdown("### 📂 Add New Period Files")
+        uploaded = st.file_uploader(
+            "Upload P&L xlsx",
+            type=["xlsx"],
+            accept_multiple_files=True,
+            label_visibility="collapsed"
+        )
+        if uploaded:
+            for f in uploaded:
+                dest = DATA_DIR / f.name
+                if not dest.exists():
+                    dest.write_bytes(f.read())
+                    st.success(f"Saved {f.name}")
             st.rerun()
 
         st.divider()
 
-        periods = sorted(df['period_label'].unique(),
-                        key=lambda p: df[df['period_label']==p]['sort_key'].iloc[0])
-        selected_period = st.selectbox("📅 Current Period", periods,
-                                      index=len(periods)-1)
-
-        # Load official regions from Stand Dates file
-        stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-        region_list = ["All"]
-        if stand_dates_file.exists():
-            try:
-                stand_dates = pd.read_excel(stand_dates_file)
-                official_regions = stand_dates['Region'].dropna().unique().tolist()
-                region_list.extend(official_regions)
-            except:
-                region_list.extend(sorted(df['region'].unique().tolist()))
-        else:
-            region_list.extend(sorted(df['region'].unique().tolist()))
-
-        selected_region = st.selectbox("🗺️ Region", region_list)
-
-        cohorts = ["All"] + sorted(
-            df['cohort'].unique().tolist(),
-            key=lambda c: (0 if c=="Legacy (Pre-Data)" else 1, c))
-        selected_cohort = st.multiselect("📦 Cohort", cohorts[1:],
-                                        placeholder="All cohorts")
+        if st.button("🔄 Reload Data"):
+            st.rerun()
 
         st.divider()
-        st.caption(f"**{df['stand_id'].nunique()}** stands  |  "
-                  f"**{df['period_label'].nunique()}** periods")
-        st.caption(f"Updated: {pd.Timestamp.now().strftime('%m/%d/%Y')}")
 
-    return selected_period, selected_region, selected_cohort, periods
+        selected_period = st.selectbox("📅 Current Period", periods, index=len(periods)-1)
 
-def build_city_to_region_map():
-    """Create mapping from city to region based on Stand Dates file"""
-    import re
-    city_region_map = {}
-    stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-
-    if stand_dates_file.exists():
-        try:
-            sd = pd.read_excel(stand_dates_file)
-            # Map cities to regions from Stand Dates
-            for _, row in sd.iterrows():
-                stand_name = str(row.get('Stand', ''))
-                region = row.get('Region', '')
-                # Extract city from stand name (e.g., "Cleburne (#516)" -> "cleburne")
-                city = stand_name.split('(')[0].strip().lower()
-                if city and region:
-                    city_region_map[city] = region
-        except Exception as e:
-            st.warning(f"Could not load city-to-region mapping: {e}")
-
-    return city_region_map
-
-def get_city_region_mapping():
-    """Build city-to-region mapping from Stand Dates file"""
-    mapping = {}
-    stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-
-    if stand_dates_file.exists():
-        try:
-            sd = pd.read_excel(stand_dates_file)
-            # Extract base city names and their regions
-            # E.g., "Lubbock 4" -> "Lubbock", "Lawton 2" -> "Lawton"
-            for _, row in sd.iterrows():
-                stand_name = str(row.get('Stand', '')).split('(')[0].strip()
-                region = row.get('Region', '')
-                # Extract base city (remove numbers and suffixes)
-                import re
-                base_city = re.sub(r'\s+\d+$|\s+\d+$', '', stand_name).strip()
-                if base_city and region:
-                    mapping[base_city.lower()] = region
-        except:
-            pass
-
-    return mapping
-
-def apply_filters(df, period, region, cohorts):
-    ldf = df[df['period_label'] == period].copy()
-
-    # Build city-to-region mapping if not already cached
-    if not hasattr(apply_filters, '_city_region_map'):
-        apply_filters._city_region_map = get_city_region_mapping()
-
-    # Map cities to regions
-    ldf['region_mapped'] = ldf['city'].str.lower().map(apply_filters._city_region_map).fillna(ldf['region'])
-
-    # Use provided region for filtering
-    if region != "All":
-        ldf = ldf[ldf['region_mapped'] == region]
-
-    if cohorts:
-        ldf = ldf[ldf['cohort'].isin(cohorts)]
-    ldf['ebitda_pct'] = ldf['Store Level EBITDA'] / ldf['Net Sales'].replace(0, np.nan)
-    ldf['cogs_pct']   = ldf['COGS'] / ldf['Net Sales'].replace(0, np.nan)
-    ldf['labor_pct']  = ldf['Total Labor & Benefits'] / ldf['Net Sales'].replace(0, np.nan)
-    return ldf
-
-# ══════════════════════════════════════════════════════════════════════════════
-# TAB CONTENT FUNCTIONS
-# ══════════════════════════════════════════════════════════════════════════════
-
-def tab_overview(df, ldf, periods, selected_period):
-    """Overview Tab - System KPIs and period comparison"""
-    st.markdown('<div class="section-title">System Overview</div>', unsafe_allow_html=True)
-
-    # KPIs
-    first_period = periods[0]
-    fdf = df[df['period_label'] == first_period]
-    mature = ldf[~ldf['is_ramp']]
-
-    total_stands = ldf['stand_id'].nunique()
-    total_ns     = ldf['Net Sales'].sum()
-    net_ebitda   = safe_pct(ldf['Store Level EBITDA'].sum(), total_ns)
-    net_cogs     = safe_pct(ldf['COGS'].sum(), total_ns)
-    net_labor    = safe_pct(ldf['Total Labor & Benefits'].sum(), total_ns)
-
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
-    cards = [
-        (c1, "Total Stands", str(total_stands), "Active", "kpi-white"),
-        (c2, "Network Sales", fmt_dollar(total_ns, mm=True), f"Period Total", "kpi-red"),
-        (c3, "EBITDA %", fmt_pct(net_ebitda), "System Avg", "kpi-good" if (net_ebitda or 0) >= 0.12 else "kpi-bad"),
-        (c4, "COGS %", fmt_pct(net_cogs), "System Avg", "kpi-warn"),
-        (c5, "Labor %", fmt_pct(net_labor), "System Avg", "kpi-warn"),
-        (c6, "Ramp Stands", f"{int(ldf['is_ramp'].sum())}", "< 4 periods", "kpi-warn"),
-    ]
-    for col, label, val, sub, cls in cards:
-        col.markdown(kpi_card(label, val, sub, cls), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Period trend (group by period_label ONLY to avoid duplication)
-    st.markdown('<div class="section-title">Period-Over-Period Network Performance</div>', unsafe_allow_html=True)
-
-    # Add period range selector
-    col_start, col_end = st.columns(2)
-    with col_start:
-        start_period = st.selectbox(
-            "Start Period",
-            options=periods,
-            index=0,
-            key="overview_start_period"
-        )
-    with col_end:
-        end_period_idx = max(periods.index(start_period), 0) if start_period in periods else 0
-        end_period = st.selectbox(
-            "End Period",
-            options=periods[end_period_idx:],
-            index=len(periods[end_period_idx:]) - 1 if periods[end_period_idx:] else 0,
-            key="overview_end_period"
-        )
-
-    # Filter trend data by selected period range
-    start_idx = periods.index(start_period) if start_period in periods else 0
-    end_idx = periods.index(end_period) if end_period in periods else len(periods) - 1
-    selected_periods = periods[start_idx:end_idx + 1]
-
-    trend = (df[df['period_label'].isin(selected_periods)].groupby('period_label')
-            .agg(net_sales=('Net Sales','sum'),
-                 store_ebitda=('Store Level EBITDA','sum'),
-                 stands=('stand_id','nunique'))
-            .reset_index())
-
-    # Sort by period order
-    period_order = {p: i for i, p in enumerate(periods)}
-    trend['period_order'] = trend['period_label'].map(period_order)
-    trend = trend.sort_values('period_order').drop('period_order', axis=1)
-    trend['ebitda_pct'] = trend['store_ebitda'] / trend['net_sales']
-
-    col_chart, col_table = st.columns([3, 2])
-
-    with col_chart:
-        fig = go.Figure()
-        fig.add_bar(x=trend['period_label'], y=trend['net_sales'],
-                   name="Net Sales", marker_color=RED, opacity=0.85)
-        fig.add_scatter(x=trend['period_label'], y=trend['store_ebitda'],
-                       name="Store EBITDA", mode="lines+markers",
-                       line=dict(color="#1565C0", width=2), yaxis="y2")
-        fig.update_layout(
-           template="plotly_dark",
-            paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
-            yaxis=dict(title="Net Sales ($)", gridcolor="#404040"),
-            yaxis2=dict(title="Store EBITDA ($)", overlaying="y", side="right", gridcolor="#404040"),
-            legend=dict(x=0, y=1.1, orientation="h"),
-            margin=dict(l=0,r=0,t=20,b=0), height=280,
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_table:
-        tbl = trend[['period_label','stands','net_sales','ebitda_pct']].copy()
-        tbl['weekly_avg'] = tbl['net_sales'] / tbl['stands'] / 4
-        tbl['annual_run_rate'] = tbl['weekly_avg'] * 52
-        tbl.columns = ["Period","Stands","Net Sales","EBITDA %","Weekly Avg/Stand","Annual Run Rate"]
-        tbl["Net Sales"] = tbl["Net Sales"].apply(lambda x: fmt_dollar(x))
-        tbl["Weekly Avg/Stand"] = tbl["Weekly Avg/Stand"].apply(lambda x: fmt_dollar(x))
-        tbl["Annual Run Rate"] = tbl["Annual Run Rate"].apply(lambda x: fmt_dollar(x))
-        tbl["EBITDA %"] = tbl["EBITDA %"].apply(fmt_pct)
-        st.dataframe(tbl, use_container_width=True, hide_index=True, height=280)
-
-def tab_trends(df, ldf, periods, selected_period):
-    """Period Comparison Tab - Historical trends and changes"""
-    st.markdown('<div class="section-title">Period Comparison</div>', unsafe_allow_html=True)
-
-    # Period-over-period metrics
-    trend_data = df.groupby('period_label').agg(
-        net_sales=('Net Sales','sum'),
-        cogs=('COGS','sum'),
-        labor=('Total Labor & Benefits','sum'),
-        store_ebitda=('Store Level EBITDA','sum'),
-        stands=('stand_id','nunique')
-    ).reset_index()
-
-    # Sort by period order
-    period_order = {p: i for i, p in enumerate(periods)}
-    trend_data['period_order'] = trend_data['period_label'].map(period_order)
-    trend_data = trend_data.sort_values('period_order').drop('period_order', axis=1)
-
-    trend_data['cogs_pct'] = trend_data['cogs'] / trend_data['net_sales']
-    trend_data['labor_pct'] = trend_data['labor'] / trend_data['net_sales']
-    trend_data['ebitda_pct'] = trend_data['store_ebitda'] / trend_data['net_sales']
-
-    # Metrics selector with section titles
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown("### 💰 Sales")
-        metric_choice = st.radio("View", ["Net Sales"], label_visibility="collapsed", key="sales_radio")
-    with col2:
-        st.markdown("### 📦 COGS")
-        cogs_choice = st.radio("View", ["COGS %"], label_visibility="collapsed", key="cogs_radio")
-    with col3:
-        st.markdown("### 👥 Labor")
-        labor_choice = st.radio("View", ["Labor %"], label_visibility="collapsed", key="labor_radio")
-    with col4:
-        st.markdown("### 📊 EBITDA")
-        ebitda_choice = st.radio("View", ["EBITDA %"], label_visibility="collapsed", key="ebitda_radio")
-
-    # Determine which metric was selected
-    metric_choice = "Net Sales"  # Default to Sales tab
-    selected_tab = st.radio("Select Section", ["Sales", "COGS", "Labor", "EBITDA"], horizontal=True, label_visibility="collapsed")
-
-    col_chart, col_stats = st.columns([3, 1])
-
-    with col_chart:
-        fig = go.Figure()
-
-        if selected_tab == "EBITDA":
-            fig.add_scatter(x=trend_data['period_label'], y=trend_data['ebitda_pct']*100,
-                          mode='lines+markers', name='EBITDA %',
-                          line=dict(color=WIN_GREEN, width=3),
-                          marker=dict(size=8))
-            metric_label = "EBITDA %"
-        elif selected_tab == "COGS":
-            fig.add_scatter(x=trend_data['period_label'], y=trend_data['cogs_pct']*100,
-                          mode='lines+markers', name='COGS %',
-                          line=dict(color=WARN_YELLOW, width=3),
-                          marker=dict(size=8))
-            metric_label = "COGS %"
-        elif selected_tab == "Labor":
-            fig.add_scatter(x=trend_data['period_label'], y=trend_data['labor_pct']*100,
-                          mode='lines+markers', name='Labor %',
-                          line=dict(color=INFO_BLUE, width=3),
-                          marker=dict(size=8))
-            metric_label = "Labor %"
-        else:  # Sales
-            fig.add_bar(x=trend_data['period_label'], y=trend_data['net_sales'],
-                       name='Net Sales', marker_color=RED, opacity=0.8)
-            metric_label = "Net Sales"
-
-        fig.update_layout(
-            template="plotly_dark",
-            paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
-            hovermode='x unified',
-            margin=dict(l=0,r=0,t=20,b=0), height=350,
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_stats:
-        if len(trend_data) > 1:
-            latest = trend_data.iloc[-1]
-            prior = trend_data.iloc[-2]
-
-            if selected_tab == "EBITDA":
-                chg = latest['ebitda_pct'] - prior['ebitda_pct']
-                val = f"{latest['ebitda_pct']:.1%}"
-            elif selected_tab == "COGS":
-                chg = latest['cogs_pct'] - prior['cogs_pct']
-                val = f"{latest['cogs_pct']:.1%}"
-            elif selected_tab == "Labor":
-                chg = latest['labor_pct'] - prior['labor_pct']
-                val = f"{latest['labor_pct']:.1%}"
-            else:  # Sales
-                chg = latest['net_sales'] - prior['net_sales']
-                val = fmt_dollar(latest['net_sales'], mm=True)
-
-            st.markdown(f"<div class='kpi-card'><div class='kpi-label'>Current</div>"
-                       f"<div class='kpi-value'>{val}</div>"
-                       f"<div class='kpi-sub'>Period {latest['period_label']}</div></div>",
-                       unsafe_allow_html=True)
-
-            arrow = "↑" if chg >= 0 else "↓"
-            color = "green" if selected_tab in ["EBITDA","Sales"] and chg >= 0 else "red"
-            if selected_tab in ["COGS","Labor"]:
-                color = "red" if chg >= 0 else "green"
-
-            st.markdown(f"<div style='text-align:center;color:{color};font-size:18px;margin-top:12px;'>"
-                       f"{arrow} {abs(chg):.2f}{'%' if '%' in metric_label else ''}</div>",
-                       unsafe_allow_html=True)
-
-def tab_stands(df, ldf, periods, selected_period):
-    """Stand Detail Tab - Individual store performance"""
-    st.markdown('<div class="section-title">Stand Detail</div>', unsafe_allow_html=True)
-
-    # Stand metrics
-    stands_data = ldf[['stand_id', 'Net Sales', 'COGS', 'Total Labor & Benefits',
-                       'Store Level EBITDA', 'region', 'cohort', 'is_ramp']].copy()
-    stands_data['cogs_pct'] = stands_data['COGS'] / stands_data['Net Sales']
-    stands_data['labor_pct'] = stands_data['Total Labor & Benefits'] / stands_data['Net Sales']
-    stands_data['ebitda_pct'] = stands_data['Store Level EBITDA'] / stands_data['Net Sales']
-
-    # Sorting options
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        sort_by = st.selectbox("Sort by",
-                              ["EBITDA %", "Net Sales", "COGS %", "Labor %"],
-                              key="stand_sort")
-    with col2:
-        sort_order = st.radio("Order", ["Descending", "Ascending"], horizontal=True, key="stand_order")
-    with col3:
-        min_sales = st.number_input("Min Sales ($)", value=0, step=1000)
-
-    # Filter
-    stands_data = stands_data[stands_data['Net Sales'] >= min_sales]
-
-    # Sort
-    if sort_by == "EBITDA %":
-        stands_data = stands_data.sort_values('ebitda_pct', ascending=(sort_order=="Ascending"))
-    elif sort_by == "Net Sales":
-        stands_data = stands_data.sort_values('Net Sales', ascending=(sort_order=="Ascending"))
-    elif sort_by == "COGS %":
-        stands_data = stands_data.sort_values('cogs_pct', ascending=(sort_order=="Ascending"))
-    else:
-        stands_data = stands_data.sort_values('labor_pct', ascending=(sort_order=="Ascending"))
-
-    # Display table
-    display_data = stands_data[['stand_id', 'Net Sales', 'ebitda_pct', 'cogs_pct',
-                               'labor_pct', 'region', 'cohort']].copy()
-    display_data.columns = ['Stand', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %', 'Region', 'Cohort']
-
-    # Format columns
-    display_data['Net Sales'] = display_data['Net Sales'].apply(lambda x: fmt_dollar(x))
-    display_data['EBITDA %'] = display_data['EBITDA %'].apply(fmt_pct)
-    display_data['COGS %'] = display_data['COGS %'].apply(fmt_pct)
-    display_data['Labor %'] = display_data['Labor %'].apply(fmt_pct)
-
-    st.dataframe(display_data, use_container_width=True, hide_index=True, height=500)
-
-    # Top/Bottom performers
-    st.markdown('<div class="section-title" style="margin-top:24px;">Performance Rankings</div>',
-               unsafe_allow_html=True)
-
-    col_top, col_bottom = st.columns(2)
-
-    with col_top:
-        st.subheader("🏆 Top Performers (by EBITDA %)")
-        top_5 = stands_data.nlargest(5, 'ebitda_pct')[['stand_id', 'ebitda_pct', 'Net Sales']]
-        for i, (idx, row) in enumerate(top_5.iterrows(), 1):
-            st.markdown(f"**{i}. {row['stand_id']}** — {row['ebitda_pct']:.1%} EBITDA | {fmt_dollar(row['Net Sales'])}")
-
-    with col_bottom:
-        st.subheader("⚠️ Bottom Performers (by EBITDA %)")
-        bot_5 = stands_data.nsmallest(5, 'ebitda_pct')[['stand_id', 'ebitda_pct', 'Net Sales']]
-        for i, (idx, row) in enumerate(bot_5.iterrows(), 1):
-            st.markdown(f"**{i}. {row['stand_id']}** — {row['ebitda_pct']:.1%} EBITDA | {fmt_dollar(row['Net Sales'])}")
-
-def tab_regions(df, ldf, periods, selected_period):
-    """Regions Tab - Regional analysis and comparison with drill-down to stand level"""
-    st.markdown('<div class="section-title">Regional Analysis</div>', unsafe_allow_html=True)
-
-    # Get region mapping and order
-    stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-    city_to_region = get_city_region_mapping()
-    region_order = []
-
-    if stand_dates_file.exists():
-        try:
-            stand_dates = pd.read_excel(stand_dates_file)
-            region_order = stand_dates['Region'].dropna().unique().tolist()
-        except Exception as e:
-            st.warning(f"Could not load region order: {e}")
-
-    # Add region mapping to ldf based on city (if not already mapped in filters)
-    if 'region_mapped' not in ldf.columns:
-        ldf['region_mapped'] = ldf['city'].str.lower().map(city_to_region).fillna(ldf['region'])
-    else:
-        ldf['region_mapped'] = ldf['region_mapped']
-
-    # Filter out ENT and Florida - only show mapped official regions
-    ldf_regions = ldf[~ldf['region_mapped'].isin(['ENT', 'Florida', 'All'])].copy()
-
-    # Regional metrics - group by mapped regions
-    region_data = ldf_regions.groupby('region_mapped').agg(
-        net_sales=('Net Sales','sum'),
-        store_ebitda=('Store Level EBITDA','sum'),
-        cogs=('COGS','sum'),
-        labor=('Total Labor & Benefits','sum'),
-        rm=('Total R&M','sum') if 'Total R&M' in ldf_regions.columns else ('Total R&M','sum'),
-        stands=('stand_id','nunique')
-    ).reset_index()
-
-    region_data.columns = ['region', 'net_sales', 'store_ebitda', 'cogs', 'labor', 'rm', 'stands']
-
-    region_data['ebitda_pct'] = region_data['store_ebitda'] / region_data['net_sales']
-    region_data['cogs_pct'] = region_data['cogs'] / region_data['net_sales']
-    region_data['labor_pct'] = region_data['labor'] / region_data['net_sales']
-    region_data['rm_pct'] = region_data['rm'] / region_data['net_sales']
-
-    # Sort by region order if available
-    if region_order:
-        region_data['region_order'] = region_data['region'].apply(
-            lambda x: region_order.index(x) if x in region_order else 999
-        )
-        region_data = region_data.sort_values('region_order').drop('region_order', axis=1)
-    else:
-        region_data = region_data.sort_values('net_sales', ascending=False)
-
-    # Display regions as cards matching the screenshot design
-    st.markdown('<div class="section-title">Region Performance</div>', unsafe_allow_html=True)
-
-    # Initialize session state for region selection
-    if 'selected_region' not in st.session_state:
-        st.session_state.selected_region = None
-
-    # Create grid layout for regions with clickable buttons
-    cols_per_row = 2
-    for i in range(0, len(region_data), cols_per_row):
-        cols = st.columns(cols_per_row)
-        for j, col in enumerate(cols):
-            if i + j < len(region_data):
-                row = region_data.iloc[i + j]
-                with col:
-                    # Create clickable region card
-                    if st.button(
-                        f"View {row['region']} Details",
-                        key=f"region_btn_{row['region']}",
-                        use_container_width=True,
-                    ):
-                        st.session_state.selected_region = row['region']
-
-                    # Region card display
-                    card_html = f"""
-                    <div style="background: {CHARCOAL}; border: 1px solid {BORDER}; border-radius: 10px; padding: 20px; margin-bottom: 16px;">
-                        <div style="font-size: 18px; font-weight: 700; color: {WHITE}; text-transform: uppercase; margin-bottom: 8px;">
-                            {row['region']}
-                        </div>
-                        <div style="font-size: 12px; color: {DIM}; margin-bottom: 16px; font-family: monospace;">
-                            {int(row['stands'])} stands · {fmt_dollar(row['net_sales'])} · {selected_period}
-                        </div>
-                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; text-align: center;">
-                            <div>
-                                <div style="color: {WIN_GREEN}; font-size: 16px; font-weight: 700;">{row['ebitda_pct']:.1%}</div>
-                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">EBITDA%</div>
-                            </div>
-                            <div>
-                                <div style="color: {WARN_YELLOW}; font-size: 16px; font-weight: 700;">{row['labor_pct']:.1%}</div>
-                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">LABOR%</div>
-                            </div>
-                            <div>
-                                <div style="color: {WARN_YELLOW}; font-size: 16px; font-weight: 700;">{row['cogs_pct']:.1%}</div>
-                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">COGS%</div>
-                            </div>
-                            <div>
-                                <div style="color: {RISK_RED}; font-size: 16px; font-weight: 700;">{row['rm_pct']:.1%}</div>
-                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">R&M%</div>
-                            </div>
-                        </div>
-                    </div>
-                    """
-                    st.markdown(card_html, unsafe_allow_html=True)
-
-    # Display stand-level drill-down when region is selected
-    if st.session_state.selected_region:
-        st.divider()
-        st.markdown(f'<div class="section-title">{st.session_state.selected_region} — Stand-Level P&L</div>', unsafe_allow_html=True)
-
-        # Get stands in selected region
-        region_stands = ldf_regions[ldf_regions['region_mapped'] == st.session_state.selected_region].copy()
-
-        if len(region_stands) > 0:
-            # Aggregate by stand
-            stands_data = region_stands.groupby(['stand_id', 'city']).agg(
-                net_sales=('Net Sales','sum'),
-                cogs=('COGS','sum'),
-                labor=('Total Labor & Benefits','sum'),
-                store_ebitda=('Store Level EBITDA','sum'),
-            ).reset_index()
-
-            stands_data['ebitda_pct'] = (stands_data['store_ebitda'] / stands_data['net_sales']).round(3)
-            stands_data['cogs_pct'] = (stands_data['cogs'] / stands_data['net_sales']).round(3)
-            stands_data['labor_pct'] = (stands_data['labor'] / stands_data['net_sales']).round(3)
-
-            # Sort by sales descending
-            stands_data = stands_data.sort_values('net_sales', ascending=False)
-
-            # Display as table
-            display_cols = stands_data[['stand_id', 'city', 'net_sales', 'cogs_pct', 'labor_pct', 'ebitda_pct']].copy()
-            display_cols.columns = ['Stand ID', 'City', 'Net Sales', 'COGS %', 'Labor %', 'EBITDA %']
-            display_cols['Net Sales'] = display_cols['Net Sales'].apply(fmt_dollar)
-            display_cols['COGS %'] = display_cols['COGS %'].apply(fmt_pct)
-            display_cols['Labor %'] = display_cols['Labor %'].apply(fmt_pct)
-            display_cols['EBITDA %'] = display_cols['EBITDA %'].apply(fmt_pct)
-
-            st.dataframe(display_cols, use_container_width=True, hide_index=True)
-
-            # Add close button
-            if st.button("Close Stand Details", use_container_width=True):
-                st.session_state.selected_region = None
-                st.rerun()
-        else:
-            st.info(f"No stands found in {st.session_state.selected_region}")
-
-def tab_wins(df, ldf, periods, selected_period):
-    """Wins & Opportunities Tab"""
-    st.markdown('<div class="section-title">Wins & Opportunities</div>', unsafe_allow_html=True)
-    st.info("🎯 Top performers and areas for improvement.")
-    # Implementation would show best/worst performers
-
-def tab_forecast(df, ldf, periods, selected_period):
-    """Forecast Tab"""
-    st.markdown('<div class="section-title">Forecast P3–P13 2026</div>', unsafe_allow_html=True)
-    st.info("📈 Forward-looking financial projections.")
-    # Implementation would show forecast data
-
-def tab_potholes(df, ldf, periods, selected_period):
-    """Pothole Watch Tab - Critical Alerts"""
-    st.markdown('<div class="section-title">⚠️ Pothole Watch</div>', unsafe_allow_html=True)
-    st.info("🚨 Critical issues requiring attention.")
-    # Implementation would show critical metrics and alerts
-
-# ══════════════════════════════════════════════════════════════════════════════
-# MAIN
-# ══════════════════════════════════════════════════════════════════════════════
-
-def main():
-    # Check for data files
-    files = sorted(glob.glob(str(DATA_DIR / "7BREW Income Statement Side By Side PTD All*.xlsx")))
-    
-    if not files:
-        with st.sidebar:
-            logo_path = Path(__file__).parent / "assets" / "logo.png"
-            if logo_path.exists():
-                st.image(str(logo_path), use_container_width=True)
-            else:
-                st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
-            st.divider()
-            st.markdown("### 📂 Upload Period Files")
-            st.caption("Drop your P&L Excel files here to get started.")
-            uploaded = st.file_uploader(
-                "Upload Period File",
-                type=["xlsx"],
-                accept_multiple_files=True,
-                label_visibility="collapsed",
-            )
-            if uploaded:
-                for f in uploaded:
-                    dest = DATA_DIR / f.name
-                    if not dest.exists():
-                        dest.write_bytes(f.read())
-                        st.success(f"Saved {f.name}")
-                st.rerun()
-        
-        st.markdown('<div class="brew-header"><h1>7CREW Enterprises | P&L Dashboard</h1>'
-                   '<p>No period files found — upload your first file to get started</p></div>',
-                   unsafe_allow_html=True)
-        st.info("👈 Use the sidebar on the left to upload your P&L Excel files.")
-        return
-    
-    # Load data
-    try:
-        df = load_data(get_file_key())
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        st.exception(e)
-        return
-    
-    # Sidebar controls
-    selected_period, selected_region, selected_cohort, periods = sidebar_controls(df)
-    
-    # Apply filters
-    ldf = apply_filters(df, selected_period, selected_region, selected_cohort)
-    
-    # Header
-    st.markdown(
-        f'<div class="brew-header">'
-        f'<h1>7CREW Enterprises  |  P&L Performance Dashboard</h1>'
-        f'<p>{df["stand_id"].nunique()} stands  |  {len(periods)} periods  |  '
-        f'Period: {selected_period}  |  {ldf["stand_id"].nunique()} stands visible</p>'
-        f'</div>', unsafe_allow_html=True)
-    
-    # Tabs matching HTML dashboard
-    tabs = st.tabs([
+    # Tabs
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "Overview",
         "Period Comparison",
         "Stand Detail",
         "Regions",
         "Wins & Opportunities",
         "Forecast",
-        "⚠️ Pothole Watch"
+        "⚠ Pothole Watch"
     ])
-    
-    with tabs[0]: tab_overview(df, ldf, periods, selected_period)
-    with tabs[1]: tab_trends(df, ldf, periods, selected_period)
-    with tabs[2]: tab_stands(df, ldf, periods, selected_period)
-    with tabs[3]: tab_regions(df, ldf, periods, selected_period)
-    with tabs[4]: tab_wins(df, ldf, periods, selected_period)
-    with tabs[5]: tab_forecast(df, ldf, periods, selected_period)
-    with tabs[6]: tab_potholes(df, ldf, periods, selected_period)
+
+    with tab1:
+        tab_overview(df, periods, selected_period)
+    with tab2:
+        tab_trends(df, periods, selected_period)
+    with tab3:
+        tab_stands(df, periods, selected_period)
+    with tab4:
+        tab_regions(df, periods, selected_period)
+    with tab5:
+        tab_wins(df, periods, selected_period)
+    with tab6:
+        tab_forecast(df, periods, selected_period)
+    with tab7:
+        tab_potholes(df, periods, selected_period)
 
 if __name__ == "__main__":
     main()
