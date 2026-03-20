@@ -114,8 +114,34 @@ st.markdown(f"""
 
 /* Hide Streamlit branding */
 #MainMenu, footer {{ visibility: hidden; }}
+
+/* Light mode overrides */
+@media (prefers-color-scheme: light) {{
+    body, [data-testid="stAppViewContainer"] {{
+        background-color: #F5F5F5 !important;
+        color: #1A1A1A !important;
+    }}
+    [data-testid="stSidebar"] {{
+        background: #FFFFFF !important;
+    }}
+    [data-testid="stSidebar"] * {{ color: #2D2D2D !important; }}
+    .brew-header, .kpi-card, .brew-section {{
+        background: #FFFFFF !important;
+        border: 1px solid #E0E0E0 !important;
+    }}
+    .brew-header h1, .kpi-card {{ color: #1A1A1A !important; }}
+    .brew-header p {{ color: #666666 !important; }}
+}}
 </style>
 """, unsafe_allow_html=True)
+
+# ── Theme management ──────────────────────────────────────────────────────────
+
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+def toggle_theme():
+    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
@@ -175,11 +201,17 @@ def section(title):
 
 def sidebar_controls(df):
     with st.sidebar:
-        logo_path = Path(__file__).parent / "assets" / "logo.png"
-        if logo_path.exists():
-            st.image(str(logo_path), width=180)
-        else:
-            st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
+        # Theme toggle and logo
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            logo_path = Path(__file__).parent / "assets" / "logo.png"
+            if logo_path.exists():
+                st.image(str(logo_path), width=140)
+            else:
+                st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
+        with col2:
+            theme_icon = "🌙" if st.session_state.theme == "dark" else "☀️"
+            st.button(theme_icon, on_click=toggle_theme, key="theme_toggle", help="Toggle dark/light mode")
 
         st.divider()
 
