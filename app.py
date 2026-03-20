@@ -286,11 +286,12 @@ def tab_overview(df, periods, selected_period):
     # Period range selector
     col1, col2 = st.columns(2)
     with col1:
-        start_idx = st.select_slider("Period Range Start", 0, len(periods)-1, 0)
+        start_period = st.selectbox("Period Range Start", periods, index=0, key="overview_start")
     with col2:
-        end_idx = st.select_slider("Period Range End", start_idx, len(periods)-1, len(periods)-1)
+        start_idx = periods.index(start_period)
+        end_period = st.selectbox("Period Range End", periods[start_idx:], index=len(periods)-start_idx-1, key="overview_end")
 
-    period_range = periods[start_idx:end_idx+1]
+    period_range = periods[periods.index(start_period):periods.index(end_period)+1]
 
     # Calculate period trend
     trend = df[df['period_label'].isin(period_range)].groupby('period_label').agg(
