@@ -603,22 +603,27 @@ def tab_regions(df, ldf, periods, selected_period):
     else:
         ldf['region_mapped'] = ldf['region_mapped']
 
+    # Filter out ENT and Florida - only show mapped official regions
+    ldf_regions = ldf[~ldf['region_mapped'].isin(['ENT', 'Florida', 'All'])].copy()
+
     # Regional metrics - group by mapped regions
-    region_data = ldf.groupby('region_mapped').agg(
+    region_data = ldf_regions.groupby('region_mapped').agg(
         net_sales=('Net Sales','sum'),
         store_ebitda=('Store Level EBITDA','sum'),
         cogs=('COGS','sum'),
         labor=('Total Labor & Benefits','sum'),
+        rm=('Total R&M','sum') if 'Total R&M' in ldf_regions.columns else ('Total R&M','sum'),
         stands=('stand_id','nunique')
     ).reset_index()
 
-    region_data.columns = ['region', 'net_sales', 'store_ebitda', 'cogs', 'labor', 'stands']
+    region_data.columns = ['region', 'net_sales', 'store_ebitda', 'cogs', 'labor', 'rm', 'stands']
 
     region_data['ebitda_pct'] = region_data['store_ebitda'] / region_data['net_sales']
     region_data['cogs_pct'] = region_data['cogs'] / region_data['net_sales']
     region_data['labor_pct'] = region_data['labor'] / region_data['net_sales']
+    region_data['rm_pct'] = region_data['rm'] / region_data['net_sales']
 
-    # Sort by region order if available, otherwise by net sales
+    # Sort by region order if available
     if region_order:
         region_data['region_order'] = region_data['region'].apply(
             lambda x: region_order.index(x) if x in region_order else 999
@@ -627,78 +632,47 @@ def tab_regions(df, ldf, periods, selected_period):
     else:
         region_data = region_data.sort_values('net_sales', ascending=False)
 
-    # KPI comparison
-    st.markdown('<div class="section-title">Regional KPIs</div>', unsafe_allow_html=True)
+    # Display regions as cards matching the screenshot design
+    st.markdown('<div class="section-title">Region Performance</div>', unsafe_allow_html=True)
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    with col1:
-        st.markdown(kpi_card("Total Regions", str(region_data['region'].nunique()), "Active", "kpi-white"),
-                   unsafe_allow_html=True)
-    with col2:
-        st.markdown(kpi_card("Network Sales", fmt_dollar(region_data['net_sales'].sum(), mm=True),
-                            "Period Total", "kpi-red"), unsafe_allow_html=True)
-    with col3:
-        avg_ebitda = region_data['ebitda_pct'].mean()
-        st.markdown(kpi_card("Avg EBITDA %", fmt_pct(avg_ebitda),
-                            "Across Regions", "kpi-good" if avg_ebitda >= 0.12 else "kpi-bad"),
-                   unsafe_allow_html=True)
-    with col4:
-        st.markdown(kpi_card("Avg COGS %", fmt_pct(region_data['cogs_pct'].mean()),
-                            "Across Regions", "kpi-warn"), unsafe_allow_html=True)
-    with col5:
-        st.markdown(kpi_card("Avg Labor %", fmt_pct(region_data['labor_pct'].mean()),
-                            "Across Regions", "kpi-warn"), unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Regional comparison charts
-    col_chart1, col_chart2 = st.columns(2)
-
-    with col_chart1:
-        st.subheader("💰 Net Sales by Region")
-        fig1 = px.bar(region_data.sort_values('net_sales', ascending=True),
-                     y='region', x='net_sales',
-                     orientation='h',
-                     labels={'net_sales':'Net Sales ($)', 'region':'Region'},
-                     color='ebitda_pct',
-                     color_continuous_scale=['#E74C3C', '#F4A21E', '#2ECC71'],
-                     )
-        fig1.update_layout(template="plotly_dark",
-                          paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
-                          margin=dict(l=0,r=0,t=20,b=0), height=320,
-                          coloraxis_colorbar=dict(title="EBITDA %"))
-        st.plotly_chart(fig1, use_container_width=True)
-
-    with col_chart2:
-        st.subheader("📊 EBITDA % by Region")
-        fig2 = px.bar(region_data.sort_values('ebitda_pct'),
-                     x='region', y='ebitda_pct',
-                     labels={'ebitda_pct':'EBITDA %', 'region':'Region'},
-                     color='ebitda_pct',
-                     color_continuous_scale=['#E74C3C', '#F4A21E', '#2ECC71'],
-                     )
-        fig2.update_layout(template="plotly_dark",
-                          paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
-                          margin=dict(l=0,r=0,t=20,b=0), height=320,
-                          coloraxis_showscale=False)
-        fig2.update_yaxes(tickformat=".1%")
-        st.plotly_chart(fig2, use_container_width=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Regional details table
-    st.markdown('<div class="section-title">Regional Details</div>', unsafe_allow_html=True)
-
-    region_display = region_data[['region', 'stands', 'net_sales', 'ebitda_pct',
-                                  'cogs_pct', 'labor_pct']].copy()
-    region_display.columns = ['Region', 'Stands', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %']
-
-    region_display['Net Sales'] = region_display['Net Sales'].apply(lambda x: fmt_dollar(x, mm=True))
-    region_display['EBITDA %'] = region_display['EBITDA %'].apply(fmt_pct)
-    region_display['COGS %'] = region_display['COGS %'].apply(fmt_pct)
-    region_display['Labor %'] = region_display['Labor %'].apply(fmt_pct)
-
-    st.dataframe(region_display, use_container_width=True, hide_index=True)
+    # Create grid layout for regions
+    cols_per_row = 2
+    for i in range(0, len(region_data), cols_per_row):
+        cols = st.columns(cols_per_row)
+        for j, col in enumerate(cols):
+            if i + j < len(region_data):
+                row = region_data.iloc[i + j]
+                with col:
+                    # Region card with title
+                    card_html = f"""
+                    <div style="background: {CHARCOAL}; border: 1px solid {BORDER}; border-radius: 10px; padding: 20px; margin-bottom: 16px;">
+                        <div style="font-size: 18px; font-weight: 700; color: {WHITE}; text-transform: uppercase; margin-bottom: 8px;">
+                            {row['region']}
+                        </div>
+                        <div style="font-size: 12px; color: {DIM}; margin-bottom: 16px; font-family: monospace;">
+                            {int(row['stands'])} stands · {fmt_dollar(row['net_sales'])} · {selected_period}
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; text-align: center;">
+                            <div>
+                                <div style="color: {WIN_GREEN}; font-size: 16px; font-weight: 700;">{row['ebitda_pct']:.1%}</div>
+                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">EBITDA%</div>
+                            </div>
+                            <div>
+                                <div style="color: {WARN_YELLOW}; font-size: 16px; font-weight: 700;">{row['labor_pct']:.1%}</div>
+                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">LABOR%</div>
+                            </div>
+                            <div>
+                                <div style="color: {WARN_YELLOW}; font-size: 16px; font-weight: 700;">{row['cogs_pct']:.1%}</div>
+                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">COGS%</div>
+                            </div>
+                            <div>
+                                <div style="color: {RISK_RED}; font-size: 16px; font-weight: 700;">{row['rm_pct']:.1%}</div>
+                                <div style="color: {DIM}; font-size: 9px; text-transform: uppercase; font-weight: 600; margin-top: 4px;">R&M%</div>
+                            </div>
+                        </div>
+                    </div>
+                    """
+                    st.markdown(card_html, unsafe_allow_html=True)
 
 def tab_wins(df, ldf, periods, selected_period):
     """Wins & Opportunities Tab"""
