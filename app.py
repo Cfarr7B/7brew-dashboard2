@@ -121,9 +121,10 @@ st.markdown(f"""
 
 DATA_DIR = Path(__file__).parent / "data"
 
-@st.cache_data(show_spinner="Reading P&L files…")
+@st.cache_data(show_spinner="Reading P&L files…", ttl=300)
 def load_data(file_paths_key: str):
-    """Load and cache the consolidated dataset."""
+    """Load and cache the consolidated dataset. Cache expires every 5 minutes."""
+    print(f"[CACHE] Loading data with key: {file_paths_key[:50]}...")
     return build_dataset(str(DATA_DIR))
 
 def get_file_key():
@@ -199,6 +200,13 @@ def sidebar_controls(df):
                         dest.write_bytes(f.read())
                         st.success(f"Saved {f.name}")
                 st.rerun()
+
+        st.divider()
+
+        # Manual cache clear button
+        if st.button("🔄 Refresh Data Cache"):
+            st.cache_data.clear()
+            st.rerun()
 
         st.divider()
 
