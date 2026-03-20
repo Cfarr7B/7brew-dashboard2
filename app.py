@@ -239,8 +239,20 @@ def sidebar_controls(df):
         selected_period = st.selectbox("📅 Current Period", periods,
                                       index=len(periods)-1)
 
-        regions = ["All"] + sorted(df['region'].unique().tolist())
-        selected_region = st.selectbox("🗺️ Region", regions)
+        # Load official regions from Stand Dates file
+        stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
+        region_list = ["All"]
+        if stand_dates_file.exists():
+            try:
+                stand_dates = pd.read_excel(stand_dates_file)
+                official_regions = stand_dates['Region'].dropna().unique().tolist()
+                region_list.extend(official_regions)
+            except:
+                region_list.extend(sorted(df['region'].unique().tolist()))
+        else:
+            region_list.extend(sorted(df['region'].unique().tolist()))
+
+        selected_region = st.selectbox("🗺️ Region", region_list)
 
         cohorts = ["All"] + sorted(
             df['cohort'].unique().tolist(),
@@ -499,6 +511,18 @@ def tab_regions(df, ldf, periods, selected_period):
     """Regions Tab - Regional analysis and comparison"""
     st.markdown('<div class="section-title">Regional Analysis</div>', unsafe_allow_html=True)
 
+    # Load region definitions from Stand Dates file
+    stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
+    region_map = {}
+    region_order = []
+    if stand_dates_file.exists():
+        try:
+            stand_dates = pd.read_excel(stand_dates_file)
+            region_map = dict(zip(stand_dates['Stand'], stand_dates['Region']))
+            region_order = stand_dates['Region'].dropna().unique().tolist()
+        except Exception as e:
+            st.warning(f"Could not load region definitions: {e}")
+
     # Regional metrics
     region_data = ldf.groupby('region').agg(
         net_sales=('Net Sales','sum'),
@@ -511,7 +535,15 @@ def tab_regions(df, ldf, periods, selected_period):
     region_data['ebitda_pct'] = region_data['store_ebitda'] / region_data['net_sales']
     region_data['cogs_pct'] = region_data['cogs'] / region_data['net_sales']
     region_data['labor_pct'] = region_data['labor'] / region_data['net_sales']
-    region_data = region_data.sort_values('net_sales', ascending=False)
+
+    # Sort by region order if available, otherwise by net sales
+    if region_order:
+        region_data['region_order'] = region_data['region'].apply(
+            lambda x: region_order.index(x) if x in region_order else 999
+        )
+        region_data = region_data.sort_values('region_order').drop('region_order', axis=1)
+    else:
+        region_data = region_data.sort_values('net_sales', ascending=False)
 
     # KPI comparison
     st.markdown('<div class="section-title">Regional KPIs</div>', unsafe_allow_html=True)
