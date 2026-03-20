@@ -33,7 +33,8 @@ GOOD_BG   = "#E8F5E9"; GOOD_TXT = "#1B5E20"
 WARN_BG   = "#FFF8E1"; WARN_TXT = "#5D4037"
 BAD_BG    = "#FFEBEE"; BAD_TXT  = "#B71C1C"
 WATCH_BG  = "#E3F2FD"; WATCH_TXT= "#0D47A1"
-Q4_COHORTS = {"P10'25", "P11'25", "P12'25", "P13'25", "P1'26"}
+# Q4 cohorts: stands that opened in Q4 of each year (naturally slower ramp)
+Q4_COHORTS = {"Q4'24", "Q4'25"}
 
 PLOTLY_COLORS = [RED, "#1565C0", "#2E7D32", "#F9A825",
                  "#6A1B9A", "#00838F", "#4E342E", "#37474F"]
@@ -525,8 +526,8 @@ def tab_q4(df, ldf, periods, selected_period):
     # ── Ramp curve: Q4 vs benchmarks ────────────────────────────────────────
     section("Q4 Class Ramp Curve vs Benchmarks")
 
-    legacy_df = df[df['cohort'] == 'Legacy (Pre-Data)']
-    mid_df    = df[df['cohort'].isin({"P5'25","P6'25","P7'25","P8'25","P9'25"})]
+    legacy_df = df[df['cohort'] == 'Q4\'24']  # Legacy benchmark (original stands)
+    mid_df    = df[df['cohort'].isin({"Q2'25","Q3'25"})]  # Mid-year cohorts for comparison
 
     max_age = min(int(q4_df['periods_open'].max()), 14)
     ages = list(range(1, max_age + 1))
