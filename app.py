@@ -587,7 +587,7 @@ def tab_stands(df, ldf, periods, selected_period):
             st.markdown(f"**{i}. {row['stand_id']}** — {row['ebitda_pct']:.1%} EBITDA | {fmt_dollar(row['Net Sales'])}")
 
 def tab_regions(df, ldf, periods, selected_period):
-    """Regions Tab - Regional analysis and comparison"""
+    """Regions Tab - Regional analysis and comparison with drill-down to stand level"""
     st.markdown('<div class="section-title">Regional Analysis</div>', unsafe_allow_html=True)
 
     # Get region mapping and order
@@ -640,7 +640,11 @@ def tab_regions(df, ldf, periods, selected_period):
     # Display regions as cards matching the screenshot design
     st.markdown('<div class="section-title">Region Performance</div>', unsafe_allow_html=True)
 
-    # Create grid layout for regions
+    # Initialize session state for region selection
+    if 'selected_region' not in st.session_state:
+        st.session_state.selected_region = None
+
+    # Create grid layout for regions with clickable buttons
     cols_per_row = 2
     for i in range(0, len(region_data), cols_per_row):
         cols = st.columns(cols_per_row)
@@ -648,7 +652,15 @@ def tab_regions(df, ldf, periods, selected_period):
             if i + j < len(region_data):
                 row = region_data.iloc[i + j]
                 with col:
-                    # Region card with title
+                    # Create clickable region card
+                    if st.button(
+                        f"View {row['region']} Details",
+                        key=f"region_btn_{row['region']}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.selected_region = row['region']
+
+                    # Region card display
                     card_html = f"""
                     <div style="background: {CHARCOAL}; border: 1px solid {BORDER}; border-radius: 10px; padding: 20px; margin-bottom: 16px;">
                         <div style="font-size: 18px; font-weight: 700; color: {WHITE}; text-transform: uppercase; margin-bottom: 8px;">
@@ -678,6 +690,47 @@ def tab_regions(df, ldf, periods, selected_period):
                     </div>
                     """
                     st.markdown(card_html, unsafe_allow_html=True)
+
+    # Display stand-level drill-down when region is selected
+    if st.session_state.selected_region:
+        st.divider()
+        st.markdown(f'<div class="section-title">{st.session_state.selected_region} — Stand-Level P&L</div>', unsafe_allow_html=True)
+
+        # Get stands in selected region
+        region_stands = ldf_regions[ldf_regions['region_mapped'] == st.session_state.selected_region].copy()
+
+        if len(region_stands) > 0:
+            # Aggregate by stand
+            stands_data = region_stands.groupby(['stand_id', 'city']).agg(
+                net_sales=('Net Sales','sum'),
+                cogs=('COGS','sum'),
+                labor=('Total Labor & Benefits','sum'),
+                store_ebitda=('Store Level EBITDA','sum'),
+            ).reset_index()
+
+            stands_data['ebitda_pct'] = (stands_data['store_ebitda'] / stands_data['net_sales']).round(3)
+            stands_data['cogs_pct'] = (stands_data['cogs'] / stands_data['net_sales']).round(3)
+            stands_data['labor_pct'] = (stands_data['labor'] / stands_data['net_sales']).round(3)
+
+            # Sort by sales descending
+            stands_data = stands_data.sort_values('net_sales', ascending=False)
+
+            # Display as table
+            display_cols = stands_data[['stand_id', 'city', 'net_sales', 'cogs_pct', 'labor_pct', 'ebitda_pct']].copy()
+            display_cols.columns = ['Stand ID', 'City', 'Net Sales', 'COGS %', 'Labor %', 'EBITDA %']
+            display_cols['Net Sales'] = display_cols['Net Sales'].apply(fmt_dollar)
+            display_cols['COGS %'] = display_cols['COGS %'].apply(fmt_pct)
+            display_cols['Labor %'] = display_cols['Labor %'].apply(fmt_pct)
+            display_cols['EBITDA %'] = display_cols['EBITDA %'].apply(fmt_pct)
+
+            st.dataframe(display_cols, use_container_width=True, hide_index=True)
+
+            # Add close button
+            if st.button("Close Stand Details", use_container_width=True):
+                st.session_state.selected_region = None
+                st.rerun()
+        else:
+            st.info(f"No stands found in {st.session_state.selected_region}")
 
 def tab_wins(df, ldf, periods, selected_period):
     """Wins & Opportunities Tab"""
