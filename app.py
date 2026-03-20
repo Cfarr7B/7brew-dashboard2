@@ -343,14 +343,18 @@ def tab_trends(df, ldf, periods, selected_period):
     st.markdown('<div class="section-title">Period Comparison</div>', unsafe_allow_html=True)
 
     # Period-over-period metrics
-    trend_data = df.groupby(['period_label','sort_key']).agg(
+    trend_data = df.groupby('period_label').agg(
         net_sales=('Net Sales','sum'),
         cogs=('COGS','sum'),
         labor=('Total Labor & Benefits','sum'),
-        rm=('R&M','sum'),
         store_ebitda=('Store Level EBITDA','sum'),
         stands=('stand_id','nunique')
-    ).reset_index().sort_values('sort_key')
+    ).reset_index()
+
+    # Sort by period order
+    period_order = {p: i for i, p in enumerate(periods)}
+    trend_data['period_order'] = trend_data['period_label'].map(period_order)
+    trend_data = trend_data.sort_values('period_order').drop('period_order', axis=1)
 
     trend_data['cogs_pct'] = trend_data['cogs'] / trend_data['net_sales']
     trend_data['labor_pct'] = trend_data['labor'] / trend_data['net_sales']
@@ -439,18 +443,17 @@ def tab_stands(df, ldf, periods, selected_period):
     st.markdown('<div class="section-title">Stand Detail</div>', unsafe_allow_html=True)
 
     # Stand metrics
-    stands_data = ldf[['stand_id', 'Net Sales', 'COGS', 'Total Labor & Benefits', 'R&M',
+    stands_data = ldf[['stand_id', 'Net Sales', 'COGS', 'Total Labor & Benefits',
                        'Store Level EBITDA', 'region', 'cohort', 'is_ramp']].copy()
     stands_data['cogs_pct'] = stands_data['COGS'] / stands_data['Net Sales']
     stands_data['labor_pct'] = stands_data['Total Labor & Benefits'] / stands_data['Net Sales']
-    stands_data['rm_pct'] = stands_data['R&M'] / stands_data['Net Sales']
     stands_data['ebitda_pct'] = stands_data['Store Level EBITDA'] / stands_data['Net Sales']
 
     # Sorting options
     col1, col2, col3 = st.columns(3)
     with col1:
         sort_by = st.selectbox("Sort by",
-                              ["EBITDA %", "Net Sales", "COGS %", "Labor %", "R&M %"],
+                              ["EBITDA %", "Net Sales", "COGS %", "Labor %"],
                               key="stand_sort")
     with col2:
         sort_order = st.radio("Order", ["Descending", "Ascending"], horizontal=True, key="stand_order")
@@ -467,22 +470,19 @@ def tab_stands(df, ldf, periods, selected_period):
         stands_data = stands_data.sort_values('Net Sales', ascending=(sort_order=="Ascending"))
     elif sort_by == "COGS %":
         stands_data = stands_data.sort_values('cogs_pct', ascending=(sort_order=="Ascending"))
-    elif sort_by == "Labor %":
-        stands_data = stands_data.sort_values('labor_pct', ascending=(sort_order=="Ascending"))
     else:
-        stands_data = stands_data.sort_values('rm_pct', ascending=(sort_order=="Ascending"))
+        stands_data = stands_data.sort_values('labor_pct', ascending=(sort_order=="Ascending"))
 
     # Display table
     display_data = stands_data[['stand_id', 'Net Sales', 'ebitda_pct', 'cogs_pct',
-                               'labor_pct', 'rm_pct', 'region', 'cohort']].copy()
-    display_data.columns = ['Stand', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %', 'R&M %', 'Region', 'Cohort']
+                               'labor_pct', 'region', 'cohort']].copy()
+    display_data.columns = ['Stand', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %', 'Region', 'Cohort']
 
     # Format columns
     display_data['Net Sales'] = display_data['Net Sales'].apply(lambda x: fmt_dollar(x))
     display_data['EBITDA %'] = display_data['EBITDA %'].apply(fmt_pct)
     display_data['COGS %'] = display_data['COGS %'].apply(fmt_pct)
     display_data['Labor %'] = display_data['Labor %'].apply(fmt_pct)
-    display_data['R&M %'] = display_data['R&M %'].apply(fmt_pct)
 
     st.dataframe(display_data, use_container_width=True, hide_index=True, height=500)
 
@@ -514,14 +514,12 @@ def tab_regions(df, ldf, periods, selected_period):
         store_ebitda=('Store Level EBITDA','sum'),
         cogs=('COGS','sum'),
         labor=('Total Labor & Benefits','sum'),
-        rm=('R&M','sum'),
         stands=('stand_id','nunique')
     ).reset_index()
 
     region_data['ebitda_pct'] = region_data['store_ebitda'] / region_data['net_sales']
     region_data['cogs_pct'] = region_data['cogs'] / region_data['net_sales']
     region_data['labor_pct'] = region_data['labor'] / region_data['net_sales']
-    region_data['rm_pct'] = region_data['rm'] / region_data['net_sales']
     region_data = region_data.sort_values('net_sales', ascending=False)
 
     # KPI comparison
@@ -587,14 +585,13 @@ def tab_regions(df, ldf, periods, selected_period):
     st.markdown('<div class="section-title">Regional Details</div>', unsafe_allow_html=True)
 
     region_display = region_data[['region', 'stands', 'net_sales', 'ebitda_pct',
-                                  'cogs_pct', 'labor_pct', 'rm_pct']].copy()
-    region_display.columns = ['Region', 'Stands', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %', 'R&M %']
+                                  'cogs_pct', 'labor_pct']].copy()
+    region_display.columns = ['Region', 'Stands', 'Net Sales', 'EBITDA %', 'COGS %', 'Labor %']
 
     region_display['Net Sales'] = region_display['Net Sales'].apply(lambda x: fmt_dollar(x, mm=True))
     region_display['EBITDA %'] = region_display['EBITDA %'].apply(fmt_pct)
     region_display['COGS %'] = region_display['COGS %'].apply(fmt_pct)
     region_display['Labor %'] = region_display['Labor %'].apply(fmt_pct)
-    region_display['R&M %'] = region_display['R&M %'].apply(fmt_pct)
 
     st.dataframe(region_display, use_container_width=True, hide_index=True)
 
