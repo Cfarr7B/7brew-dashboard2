@@ -340,18 +340,18 @@ def apply_filters(df, period, region, cohorts):
 def tab_overview(df, ldf, periods, selected_period):
     """Overview Tab - System KPIs and period comparison"""
     st.markdown('<div class="section-title">System Overview</div>', unsafe_allow_html=True)
-    
+
     # KPIs
     first_period = periods[0]
     fdf = df[df['period_label'] == first_period]
     mature = ldf[~ldf['is_ramp']]
-    
+
     total_stands = ldf['stand_id'].nunique()
     total_ns     = ldf['Net Sales'].sum()
     net_ebitda   = safe_pct(ldf['Store Level EBITDA'].sum(), total_ns)
     net_cogs     = safe_pct(ldf['COGS'].sum(), total_ns)
     net_labor    = safe_pct(ldf['Total Labor & Benefits'].sum(), total_ns)
-    
+
     c1, c2, c3, c4, c5, c6 = st.columns(6)
     cards = [
         (c1, "Total Stands", str(total_stands), "Active", "kpi-white"),
@@ -363,12 +363,36 @@ def tab_overview(df, ldf, periods, selected_period):
     ]
     for col, label, val, sub, cls in cards:
         col.markdown(kpi_card(label, val, sub, cls), unsafe_allow_html=True)
-    
+
     st.markdown("<br>", unsafe_allow_html=True)
-    
+
     # Period trend (group by period_label ONLY to avoid duplication)
     st.markdown('<div class="section-title">Period-Over-Period Network Performance</div>', unsafe_allow_html=True)
-    trend = (df.groupby('period_label')
+
+    # Add period range selector
+    col_start, col_end = st.columns(2)
+    with col_start:
+        start_period = st.selectbox(
+            "Start Period",
+            options=periods,
+            index=0,
+            key="overview_start_period"
+        )
+    with col_end:
+        end_period_idx = max(periods.index(start_period), 0) if start_period in periods else 0
+        end_period = st.selectbox(
+            "End Period",
+            options=periods[end_period_idx:],
+            index=len(periods[end_period_idx:]) - 1 if periods[end_period_idx:] else 0,
+            key="overview_end_period"
+        )
+
+    # Filter trend data by selected period range
+    start_idx = periods.index(start_period) if start_period in periods else 0
+    end_idx = periods.index(end_period) if end_period in periods else len(periods) - 1
+    selected_periods = periods[start_idx:end_idx + 1]
+
+    trend = (df[df['period_label'].isin(selected_periods)].groupby('period_label')
             .agg(net_sales=('Net Sales','sum'),
                  store_ebitda=('Store Level EBITDA','sum'),
                  stands=('stand_id','nunique'))
@@ -379,9 +403,9 @@ def tab_overview(df, ldf, periods, selected_period):
     trend['period_order'] = trend['period_label'].map(period_order)
     trend = trend.sort_values('period_order').drop('period_order', axis=1)
     trend['ebitda_pct'] = trend['store_ebitda'] / trend['net_sales']
-    
+
     col_chart, col_table = st.columns([3, 2])
-    
+
     with col_chart:
         fig = go.Figure()
         fig.add_bar(x=trend['period_label'], y=trend['net_sales'],
@@ -398,7 +422,7 @@ def tab_overview(df, ldf, periods, selected_period):
             margin=dict(l=0,r=0,t=20,b=0), height=280,
         )
         st.plotly_chart(fig, use_container_width=True)
-    
+
     with col_table:
         tbl = trend[['period_label','stands','net_sales','ebitda_pct']].copy()
         tbl['weekly_avg'] = tbl['net_sales'] / tbl['stands'] / 4
