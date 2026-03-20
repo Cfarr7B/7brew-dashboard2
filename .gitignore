@@ -14,6 +14,7 @@ data/*.xlsx
 data/*.xls
 data/*.csv
 !data/.gitkeep
+!data/7Crew_Stand_Dates.xlsx
 
 # OS
 .DS_Store
