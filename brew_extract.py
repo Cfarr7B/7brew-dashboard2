@@ -204,12 +204,13 @@ def extract_all(input_folder, file_pattern='7BREW Income Statement Side By Side 
 
 def assign_cohorts(df):
     """
-    Assign each stand to an opening cohort based on its first appearance in the data.
-    Also compute 'periods_open' (how many periods since first appearance).
+    Assign each stand to an opening cohort based on its ACTUAL opening date from 7Crew_Stand_Dates.xlsx.
+    Falls back to first appearance in P&L data if no scheduled opening date exists.
+    Also compute 'periods_open' (how many periods since first appearance in P&Ls).
     """
     min_sk = df['sort_key'].min()
 
-    # Find first sort_key for each stand
+    # Find first sort_key for each stand in P&L data
     first_sk = df.groupby('stand_id')['sort_key'].min()
 
     def period_to_quarter(pn):
@@ -218,15 +219,52 @@ def assign_cohorts(df):
         if pn <= 9:   return 3
         return 4
 
-    def cohort_label(sk):
-        if sk == min_sk:
-            return "Legacy (Pre-Data)"
+    def cohort_label_from_sk(sk):
+        """Convert sort_key to cohort label"""
         yr = sk // 100
         pn = sk % 100
         q = period_to_quarter(pn)
         return f"Q{q}'{str(yr)[-2:]}"
 
-    cohort_map = {sid: cohort_label(sk) for sid, sk in first_sk.items()}
+    def cohort_label_from_date(date_str):
+        """Parse opening date string and return cohort label. Returns None if unparseable."""
+        if not date_str or pd.isna(date_str):
+            return None
+        try:
+            # Try to parse date string like "MM/DD/YYYY"
+            date_obj = pd.to_datetime(str(date_str))
+            # Determine which period this date falls into (rough estimation)
+            # For now, use year and estimated period based on month
+            year = date_obj.year
+            month = date_obj.month
+            # Map months to periods roughly (P1=Jan-Feb, P2=Mar-Apr, etc.)
+            period = ((month - 1) // 3) + 1
+            if period > 13:
+                period = 13
+            q = period_to_quarter(period)
+            return f"Q{q}'{str(year)[-2:]}"
+        except Exception:
+            return None
+
+    # Build cohort map: use scheduled_open_date if available, else use first appearance
+    cohort_map = {}
+    for sid in df['stand_id'].unique():
+        # Get the scheduled opening date if available
+        sdf = df[df['stand_id'] == sid]
+        scheduled_date = sdf['scheduled_open_date'].iloc[0] if 'scheduled_open_date' in sdf.columns else None
+
+        cohort = None
+        if scheduled_date:
+            cohort = cohort_label_from_date(scheduled_date)
+
+        # Fallback to first appearance in P&L data
+        # Convert first appearance sort_key directly to cohort label (e.g., P13'24 → Q4'24)
+        if not cohort:
+            sk = first_sk[sid]
+            cohort = cohort_label_from_sk(sk)
+
+        cohort_map[sid] = cohort
+
     df['cohort'] = df['stand_id'].map(cohort_map)
     df['first_sort_key'] = df['stand_id'].map(first_sk)
 
