@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Data files — keep out of version control (proprietary P&L data)
+data/*.xlsx
+data/*.xls
+data/*.csv
+!data/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Editor
+.vscode/
+.idea/
+*.swp

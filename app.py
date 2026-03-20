@@ -177,7 +177,7 @@ def sidebar_controls(df):
     with st.sidebar:
         logo_path = Path(__file__).parent / "assets" / "logo.png"
         if logo_path.exists():
-            st.image(str(logo_path), width=140)
+            st.image(str(logo_path), use_container_width=True)
         else:
             st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
 
@@ -886,7 +886,7 @@ def main():
         with st.sidebar:
             logo_path = Path(__file__).parent / "assets" / "logo.png"
             if logo_path.exists():
-                st.image(str(logo_path), width=180)
+                st.image(str(logo_path), use_container_width=True)
             else:
                 st.markdown(f"## <span style='color:{RED}'>7CREW</span> ENTERPRISES", unsafe_allow_html=True)
             st.divider()

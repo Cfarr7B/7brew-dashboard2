@@ -75,9 +75,9 @@ SKIP_STANDS = {
 }
 
 def parse_period_label(filename):
-    """Extract period label from filename like 'P1\'25' → ('P1\'25', 1, 2025)"""
+    """Extract period label from filename like 'P1\'25' or 'P13 \'24' → ('P1\'25', 1, 2025)"""
     basename = os.path.basename(filename)
-    m = re.search(r"P(\d+)'(\d+)", basename)
+    m = re.search(r"P(\d+)\s*'(\d+)", basename)  # Allow optional space before quote
     if m:
         period_num = int(m.group(1))
         year = 2000 + int(m.group(2))
