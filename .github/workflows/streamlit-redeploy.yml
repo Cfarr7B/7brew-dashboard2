@@ -1,53 +1,28 @@
 name: Auto-Redeploy on Push
 
-# Trigger this workflow whenever code is pushed to main branch
 on:
   push:
     branches:
       - main
 
 jobs:
-  notify-deployment:
+  deployment:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Get latest commit
-        id: commit
-        run: |
-          echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
-
-      - name: Log deployment trigger
-        run: |
-          echo "🚀 Deployment triggered"
-          echo "Commit: ${{ steps.commit.outputs.sha }}"
-          echo "Message: ${{ steps.commit.outputs.message }}"
-          echo ""
-          echo "Streamlit Cloud will automatically detect this push and redeploy within 2-5 minutes."
-          echo "Monitor at: https://share.streamlit.io/Cfarr7B/7brew-dashboard2"
+        uses: actions/checkout@v4
 
       - name: Verify code structure
         run: |
-          echo "✓ Checking critical files exist..."
-          test -f app.py && echo "✓ app.py found" || echo "✗ app.py missing"
-          test -f brew_extract.py && echo "✓ brew_extract.py found" || echo "✗ brew_extract.py missing"
-          test -d data && echo "✓ data/ folder found" || echo "✗ data/ folder missing"
+          echo "Verifying code structure..."
+          test -f app.py && echo "✓ app.py found" || (echo "✗ app.py missing" && exit 1)
+          test -f brew_extract.py && echo "✓ brew_extract.py found" || (echo "✗ brew_extract.py missing" && exit 1)
+          test -d data && echo "✓ data/ folder found" || (echo "✗ data/ folder missing" && exit 1)
           echo "✓ Code structure verified"
 
-      - name: Deployment notification
+      - name: Log deployment
         run: |
-          echo ""
-          echo "═════════════════════════════════════════════════════════════"
-          echo "  ✅ Code Push Detected - Auto-Redeploy Initiated"
-          echo "═════════════════════════════════════════════════════════════"
-          echo ""
-          echo "  Commit: ${{ steps.commit.outputs.sha }}"
-          echo "  Branch: main"
-          echo "  Status: Pushing to Streamlit Cloud..."
-          echo ""
-          echo "  🔄 Streamlit will redeploy in 2-5 minutes"
-          echo "  📊 Dashboard: https://share.streamlit.io/Cfarr7B/7brew-dashboard2"
-          echo ""
-          echo "═════════════════════════════════════════════════════════════"
+          echo "🚀 Push detected - Streamlit Cloud auto-redeploy initiated"
+          echo "Commit: $(git rev-parse --short HEAD)"
+          echo "Message: $(git log -1 --pretty=%B | head -n1)"
+          echo "Streamlit will redeploy within 2-5 minutes"
