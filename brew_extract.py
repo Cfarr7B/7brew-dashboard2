@@ -74,6 +74,24 @@ SKIP_STANDS = {
     'All Stands & Offices', 'All Stands & Office'
 }
 
+def find_row_for_metric(ws, metric_name):
+    """
+    Search for a metric label in column A and return the row number.
+    Falls back to METRIC_ROWS default if not found.
+    Must match the exact metric name (case-insensitive, trimmed).
+    """
+    target = metric_name.strip().lower()
+    # Search rows 1-150 for the metric
+    for row_idx in range(1, 151):
+        cell = ws.cell(row=row_idx, column=1).value
+        if cell:
+            cell_str = str(cell).strip().lower()
+            # Exact match required (not substring)
+            if cell_str == target:
+                return row_idx
+    # Fall back to default if not found
+    return METRIC_ROWS.get(metric_name)
+
 def parse_period_label(filename):
     """Extract period label from filename like 'P1\'25' or 'P13 \'24' → ('P1\'25', 1, 2025)"""
     basename = os.path.basename(filename)
@@ -129,10 +147,15 @@ def extract_file(filepath):
                 stand_cols[col_idx] = name
 
     # Read all metric rows at once for efficiency
+    # Use dynamic row lookup to handle Excel template variations across periods
     all_row_data = {}
-    for metric, row_num in METRIC_ROWS.items():
-        row_vals = list(ws.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
-        all_row_data[metric] = row_vals
+    for metric in METRIC_ROWS.keys():
+        row_num = find_row_for_metric(ws, metric)
+        if row_num:
+            row_vals = list(ws.iter_rows(min_row=row_num, max_row=row_num, values_only=True))[0]
+            all_row_data[metric] = row_vals
+        else:
+            all_row_data[metric] = [0] * len(row8)
 
     records = []
     for col_idx, stand_raw in stand_cols.items():
