@@ -358,12 +358,11 @@ def tab_trends(df, ldf, periods, selected_period):
 
     trend_data['cogs_pct'] = trend_data['cogs'] / trend_data['net_sales']
     trend_data['labor_pct'] = trend_data['labor'] / trend_data['net_sales']
-    trend_data['rm_pct'] = trend_data['rm'] / trend_data['net_sales']
     trend_data['ebitda_pct'] = trend_data['store_ebitda'] / trend_data['net_sales']
 
     # Metrics selector
     metric_choice = st.radio("Select Metric to Analyze",
-                            ["EBITDA %", "COGS %", "Labor %", "R&M %", "Net Sales"],
+                            ["EBITDA %", "COGS %", "Labor %", "Net Sales"],
                             horizontal=True)
 
     col_chart, col_stats = st.columns([3, 1])
@@ -385,11 +384,6 @@ def tab_trends(df, ldf, periods, selected_period):
             fig.add_scatter(x=trend_data['period_label'], y=trend_data['labor_pct']*100,
                           mode='lines+markers', name='Labor %',
                           line=dict(color=INFO_BLUE, width=3),
-                          marker=dict(size=8))
-        elif metric_choice == "R&M %":
-            fig.add_scatter(x=trend_data['period_label'], y=trend_data['rm_pct']*100,
-                          mode='lines+markers', name='R&M %',
-                          line=dict(color=RISK_RED, width=3),
                           marker=dict(size=8))
         else:
             fig.add_bar(x=trend_data['period_label'], y=trend_data['net_sales'],
@@ -417,9 +411,6 @@ def tab_trends(df, ldf, periods, selected_period):
             elif metric_choice == "Labor %":
                 chg = latest['labor_pct'] - prior['labor_pct']
                 val = f"{latest['labor_pct']:.1%}"
-            elif metric_choice == "R&M %":
-                chg = latest['rm_pct'] - prior['rm_pct']
-                val = f"{latest['rm_pct']:.1%}"
             else:
                 chg = latest['net_sales'] - prior['net_sales']
                 val = fmt_dollar(latest['net_sales'], mm=True)
@@ -431,7 +422,7 @@ def tab_trends(df, ldf, periods, selected_period):
 
             arrow = "↑" if chg >= 0 else "↓"
             color = "green" if metric_choice in ["EBITDA %","Net Sales"] and chg >= 0 else "red"
-            if metric_choice in ["COGS %","Labor %","R&M %"]:
+            if metric_choice in ["COGS %","Labor %"]:
                 color = "red" if chg >= 0 else "green"
 
             st.markdown(f"<div style='text-align:center;color:{color};font-size:18px;margin-top:12px;'>"
