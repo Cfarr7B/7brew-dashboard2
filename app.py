@@ -267,10 +267,53 @@ def sidebar_controls(df):
 
     return selected_period, selected_region, selected_cohort, periods
 
+def build_city_to_region_map():
+    """Create mapping from city to region based on Stand Dates file"""
+    import re
+    city_region_map = {}
+    stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
+
+    if stand_dates_file.exists():
+        try:
+            sd = pd.read_excel(stand_dates_file)
+            # Map cities to regions from Stand Dates
+            for _, row in sd.iterrows():
+                stand_name = str(row.get('Stand', ''))
+                region = row.get('Region', '')
+                # Extract city from stand name (e.g., "Cleburne (#516)" -> "cleburne")
+                city = stand_name.split('(')[0].strip().lower()
+                if city and region:
+                    city_region_map[city] = region
+        except Exception as e:
+            st.warning(f"Could not load city-to-region mapping: {e}")
+
+    return city_region_map
+
 def apply_filters(df, period, region, cohorts):
     ldf = df[df['period_label'] == period].copy()
+
+    # Use provided region for filtering
     if region != "All":
-        ldf = ldf[ldf['region'] == region]
+        # Check if filtering by the official regions
+        stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
+        if stand_dates_file.exists():
+            try:
+                sd = pd.read_excel(stand_dates_file)
+                official_regions = sd['Region'].dropna().unique()
+                if region in official_regions:
+                    # Filter by matching cities that belong to this region
+                    matching_cities = sd[sd['Region'] == region]['Stand'].apply(
+                        lambda x: x.split('(')[0].strip().lower()
+                    ).unique()
+                    ldf = ldf[ldf['city'].str.lower().isin(matching_cities)]
+                else:
+                    # Fall back to original region filter
+                    ldf = ldf[ldf['region'] == region]
+            except:
+                ldf = ldf[ldf['region'] == region]
+        else:
+            ldf = ldf[ldf['region'] == region]
+
     if cohorts:
         ldf = ldf[ldf['cohort'].isin(cohorts)]
     ldf['ebitda_pct'] = ldf['Store Level EBITDA'] / ldf['Net Sales'].replace(0, np.nan)
@@ -511,26 +554,41 @@ def tab_regions(df, ldf, periods, selected_period):
     """Regions Tab - Regional analysis and comparison"""
     st.markdown('<div class="section-title">Regional Analysis</div>', unsafe_allow_html=True)
 
-    # Load region definitions from Stand Dates file
+    # Load region definitions and map cities to regions
     stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-    region_map = {}
+    city_to_region = {}
     region_order = []
+
     if stand_dates_file.exists():
         try:
             stand_dates = pd.read_excel(stand_dates_file)
-            region_map = dict(zip(stand_dates['Stand'], stand_dates['Region']))
             region_order = stand_dates['Region'].dropna().unique().tolist()
+            # Map each city to its region
+            for _, row in stand_dates.iterrows():
+                stand_name = str(row.get('Stand', ''))
+                region = row.get('Region', '')
+                city = stand_name.split('(')[0].strip().lower()
+                if city and region:
+                    city_to_region[city] = region
         except Exception as e:
             st.warning(f"Could not load region definitions: {e}")
 
-    # Regional metrics
-    region_data = ldf.groupby('region').agg(
+    # Add region mapping to ldf based on city
+    if city_to_region:
+        ldf['region_mapped'] = ldf['city'].str.lower().map(city_to_region).fillna(ldf['region'])
+    else:
+        ldf['region_mapped'] = ldf['region']
+
+    # Regional metrics - group by mapped regions
+    region_data = ldf.groupby('region_mapped').agg(
         net_sales=('Net Sales','sum'),
         store_ebitda=('Store Level EBITDA','sum'),
         cogs=('COGS','sum'),
         labor=('Total Labor & Benefits','sum'),
         stands=('stand_id','nunique')
     ).reset_index()
+
+    region_data.columns = ['region', 'net_sales', 'store_ebitda', 'cogs', 'labor', 'stands']
 
     region_data['ebitda_pct'] = region_data['store_ebitda'] / region_data['net_sales']
     region_data['cogs_pct'] = region_data['cogs'] / region_data['net_sales']
