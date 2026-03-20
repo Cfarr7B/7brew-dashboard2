@@ -129,7 +129,14 @@ def load_data(file_paths_key: str):
 
 def get_file_key():
     files = sorted(glob.glob(str(DATA_DIR / "7BREW Income Statement Side By Side PTD All*.xlsx")))
-    return "|".join(f"{p}:{os.path.getmtime(p):.0f}" for p in files)
+    key_parts = [f"{p}:{os.path.getmtime(p):.0f}" for p in files]
+
+    # Also include stand dates file in cache key for invalidation
+    stand_dates = DATA_DIR / "7Crew_Stand_Dates.xlsx"
+    if stand_dates.exists():
+        key_parts.append(f"{stand_dates}:{os.path.getmtime(stand_dates):.0f}")
+
+    return "|".join(key_parts)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
