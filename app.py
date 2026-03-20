@@ -23,98 +23,225 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Brand palette ─────────────────────────────────────────────────────────────
-RED       = "#C8102E"
-RED_DARK  = "#8B0000"
-BLACK     = "#1A1A1A"
-CHARCOAL  = "#2D2D2D"
-WHITE     = "#FFFFFF"
+# ── Brand palette (7BREW Design System) ───────────────────────────────────────
+# 7BREW brand palette — red/black/white with amber accent
+RED           = "#C8102E"
+RED_DARK      = "#A00C24"
+RED_GLOW      = "rgba(200,16,46,0.18)"
+BLACK         = "#0D0D0D"
+CHARCOAL      = "#1A1A1A"
+STEEL         = "#252525"
+MID           = "#333333"
+BORDER        = "#3A3A3A"
+AMBER         = "#F4A21E"
+AMBER_LT      = "rgba(244,162,30,0.15)"
+WHITE         = "#FAFAFA"
+FOG           = "#B0B0B0"
+DIM           = "#707070"
+
+# Semantic colors
+WIN_GREEN     = "#2ECC71"
+WIN_GREEN_BG  = "rgba(46,204,113,0.12)"
+WARN_YELLOW   = "#F4A21E"
+WARN_BG       = "rgba(244,162,30,0.12)"
+RISK_RED      = "#E74C3C"
+RISK_BG       = "rgba(231,76,60,0.12)"
+INFO_BLUE     = "#5B9BD5"
+INFO_BG       = "rgba(91,155,213,0.12)"
+
+# Legacy compatibility
 GOOD_BG   = "#E8F5E9"; GOOD_TXT = "#1B5E20"
-WARN_BG   = "#FFF8E1"; WARN_TXT = "#5D4037"
 BAD_BG    = "#FFEBEE"; BAD_TXT  = "#B71C1C"
 WATCH_BG  = "#E3F2FD"; WATCH_TXT= "#0D47A1"
+
 # Q4 cohorts: stands that opened in Q4 of each year (naturally slower ramp)
 Q4_COHORTS = {"Q4'24", "Q4'25"}
 
-PLOTLY_COLORS = [RED, "#1565C0", "#2E7D32", "#F9A825",
+PLOTLY_COLORS = [RED, "#1565C0", "#2E7D32", WARN_YELLOW,
                  "#6A1B9A", "#00838F", "#4E342E", "#37474F"]
 
-# ── Global CSS ────────────────────────────────────────────────────────────────
+# ── Global CSS (Enhanced Design System) ────────────────────────────────────────
 st.markdown(f"""
 <style>
-/* Sidebar */
+/* ===== DESIGN SYSTEM ===== */
+:root {{
+  --brew-red:       {RED};
+  --brew-red-dark:  {RED_DARK};
+  --brew-red-glow:  {RED_GLOW};
+  --brew-black:     {BLACK};
+  --brew-charcoal:  {CHARCOAL};
+  --brew-steel:     {STEEL};
+  --brew-mid:       {MID};
+  --brew-border:    {BORDER};
+  --brew-amber:     {AMBER};
+  --brew-amber-lt:  {AMBER_LT};
+  --brew-white:     {WHITE};
+  --brew-fog:       {FOG};
+  --brew-dim:       {DIM};
+
+  --win-green:      {WIN_GREEN};
+  --win-green-bg:   {WIN_GREEN_BG};
+  --warn-yellow:    {WARN_YELLOW};
+  --warn-bg:        {WARN_BG};
+  --risk-red:       {RISK_RED};
+  --risk-bg:        {RISK_BG};
+  --info-blue:      {INFO_BLUE};
+  --info-bg:        {INFO_BG};
+
+  --radius-sm:  6px;
+  --radius-md:  10px;
+  --radius-lg:  16px;
+  --shadow-card: 0 2px 16px rgba(0,0,0,0.5);
+  --shadow-lift: 0 8px 32px rgba(0,0,0,0.7);
+}}
+
+/* ===== SIDEBAR ===== */
 [data-testid="stSidebar"] {{
     background: {BLACK};
+    border-right: 1px solid {BORDER};
 }}
-[data-testid="stSidebar"] * {{ color: #E0E0E0 !important; }}
+[data-testid="stSidebar"] * {{ color: {FOG} !important; }}
 [data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stMultiSelect label {{ color: #B0B0B0 !important; font-size:12px; }}
+[data-testid="stSidebar"] .stMultiSelect label {{
+    color: {DIM} !important;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
 
-/* Main header */
+/* ===== MAIN HEADER ===== */
 .brew-header {{
-    background: {BLACK};
-    border-left: 5px solid {RED};
-    padding: 14px 20px;
-    border-radius: 6px;
-    margin-bottom: 18px;
+    background: {CHARCOAL};
+    border-bottom: 2px solid {RED};
+    border-left: none;
+    padding: 20px 24px;
+    border-radius: 0;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
 }}
 .brew-header h1 {{
-    color: {WHITE}; font-size: 22px; font-weight: 800;
-    letter-spacing: 2px; margin: 0; text-transform: uppercase;
+    color: {WHITE};
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin: 0;
+    text-transform: uppercase;
 }}
-.brew-header p {{ color: #A0A0A0; font-size: 12px; margin: 4px 0 0; }}
+.brew-header p {{
+    color: {DIM};
+    font-size: 11px;
+    margin: 8px 0 0;
+    font-family: monospace;
+}}
 
-/* Section headers */
+/* ===== SECTION HEADERS ===== */
 .brew-section {{
-    background: {CHARCOAL};
+    background: {STEEL};
     border-left: 4px solid {RED};
-    padding: 8px 16px;
-    border-radius: 4px;
-    margin: 20px 0 10px;
+    border: 1px solid {BORDER};
+    padding: 12px 16px;
+    border-radius: 6px;
+    margin: 24px 0 12px;
     color: {WHITE};
     font-weight: 700;
-    font-size: 13px;
+    font-size: 12px;
     letter-spacing: 1px;
     text-transform: uppercase;
 }}
 
-/* KPI cards */
+/* ===== KPI GRID & CARDS ===== */
+.kpi-grid {{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}}
 .kpi-card {{
-    background: {BLACK};
+    background: {CHARCOAL};
+    border: 1px solid {BORDER};
     border-top: 3px solid {RED};
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 16px;
     text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+}}
+.kpi-card:hover {{
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card);
 }}
 .kpi-label {{
-    color: #808080;
-    font-size: 10px;
+    color: {DIM};
+    font-size: 9px;
     font-weight: 700;
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }}
-.kpi-value {{ font-size: 28px; font-weight: 800; margin: 0; line-height: 1; }}
-.kpi-sub {{ color: #808080; font-size: 11px; margin-top: 4px; }}
-.kpi-good  {{ color: {GOOD_TXT}; }}
-.kpi-warn  {{ color: #F9A825; }}
-.kpi-bad   {{ color: {BAD_TXT}; }}
+.kpi-value {{
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1;
+    color: {WHITE};
+}}
+.kpi-sub {{
+    color: {DIM};
+    font-size: 10px;
+    margin-top: 6px;
+    font-family: monospace;
+}}
+.kpi-good  {{ color: {WIN_GREEN}; }}
+.kpi-warn  {{ color: {WARN_YELLOW}; }}
+.kpi-bad   {{ color: {RISK_RED}; }}
 .kpi-white {{ color: {WHITE}; }}
 .kpi-red   {{ color: {RED}; }}
 
-/* Q4 banner */
+/* ===== BANNERS ===== */
 .q4-banner {{
-    background: {WATCH_BG};
-    border-left: 4px solid {WATCH_TXT};
-    padding: 10px 16px;
-    border-radius: 4px;
-    color: {WATCH_TXT};
+    background: {INFO_BG};
+    border-left: 4px solid {INFO_BLUE};
+    padding: 12px 16px;
+    border-radius: 6px;
+    color: {INFO_BLUE};
     font-size: 12px;
     margin-bottom: 16px;
+    border: 1px solid {BORDER};
+}}
+.banner-success {{
+    background: {WIN_GREEN_BG};
+    border-left-color: {WIN_GREEN};
+    color: {WIN_GREEN};
+}}
+.banner-warn {{
+    background: {WARN_BG};
+    border-left-color: {WARN_YELLOW};
+    color: {WARN_YELLOW};
+}}
+.banner-risk {{
+    background: {RISK_BG};
+    border-left-color: {RISK_RED};
+    color: {RISK_RED};
 }}
 
-/* Hide Streamlit branding */
+/* ===== HIDE STREAMLIT BRANDING ===== */
 #MainMenu, footer {{ visibility: hidden; }}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {{
+    width: 8px;
+    height: 8px;
+}}
+::-webkit-scrollbar-track {{
+    background: {BLACK};
+}}
+::-webkit-scrollbar-thumb {{
+    background: {STEEL};
+    border-radius: 4px;
+}}
+::-webkit-scrollbar-thumb:hover {{
+    background: {MID};
+}}
 </style>
 """, unsafe_allow_html=True)
 
