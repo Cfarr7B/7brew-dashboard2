@@ -366,13 +366,18 @@ def tab_overview(df, ldf, periods, selected_period):
     
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Period trend
+    # Period trend (group by period_label ONLY to avoid duplication)
     st.markdown('<div class="section-title">Period-Over-Period Network Performance</div>', unsafe_allow_html=True)
-    trend = (df.groupby(['period_label','sort_key'])
+    trend = (df.groupby('period_label')
             .agg(net_sales=('Net Sales','sum'),
                  store_ebitda=('Store Level EBITDA','sum'),
                  stands=('stand_id','nunique'))
-            .reset_index().sort_values('sort_key'))
+            .reset_index())
+
+    # Sort by period order
+    period_order = {p: i for i, p in enumerate(periods)}
+    trend['period_order'] = trend['period_label'].map(period_order)
+    trend = trend.sort_values('period_order').drop('period_order', axis=1)
     trend['ebitda_pct'] = trend['store_ebitda'] / trend['net_sales']
     
     col_chart, col_table = st.columns([3, 2])
