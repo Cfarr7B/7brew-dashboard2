@@ -325,8 +325,17 @@ def tab_ceo(df, ldf, periods, selected_period):
 
     with col_table:
         tbl = trend[['period_label','stands','net_sales','ebitda_pct']].copy()
-        tbl.columns = ["Period","Stands","Net Sales","EBITDA %"]
+
+        # Add weekly average (Net Sales / # of stands / 4 weeks)
+        tbl['weekly_avg'] = tbl['net_sales'] / tbl['stands'] / 4
+
+        # Add annual run rate (weekly average * 52 weeks)
+        tbl['annual_run_rate'] = tbl['weekly_avg'] * 52
+
+        tbl.columns = ["Period","Stands","Net Sales","EBITDA %","Weekly Avg/Stand","Annual Run Rate"]
         tbl["Net Sales"] = tbl["Net Sales"].apply(lambda x: fmt_dollar(x))
+        tbl["Weekly Avg/Stand"] = tbl["Weekly Avg/Stand"].apply(lambda x: fmt_dollar(x))
+        tbl["Annual Run Rate"] = tbl["Annual Run Rate"].apply(lambda x: fmt_dollar(x))
         tbl["EBITDA %"]  = tbl["EBITDA %"].apply(fmt_pct)
         st.dataframe(tbl, use_container_width=True, hide_index=True, height=280)
 
@@ -363,6 +372,68 @@ def tab_ceo(df, ldf, periods, selected_period):
             margin=dict(l=0,r=0,t=10,b=0), height=220,
         )
         st.plotly_chart(fig3, use_container_width=True)
+
+    # ── Performance by Stand Maturity ────────────────────────────────────────
+    section("Performance by Stand Maturity")
+
+    # Categorize stands by maturity based on periods_open
+    def categorize_maturity(periods_open):
+        if periods_open < 3:
+            return "New (<3mo)"
+        elif periods_open < 6:
+            return "Young (3-6mo)"
+        elif periods_open < 12:
+            return "Developing (6-12mo)"
+        else:
+            return "Mature (1yr+)"
+
+    ldf_maturity = ldf.copy()
+    ldf_maturity['maturity'] = ldf_maturity['periods_open'].apply(categorize_maturity)
+    ldf_maturity['ebitda_pct'] = ldf_maturity['Store Level EBITDA'] / ldf_maturity['Net Sales'].replace(0, np.nan)
+    ldf_maturity['labor_pct'] = ldf_maturity['Total Labor & Benefits'] / ldf_maturity['Net Sales'].replace(0, np.nan)
+
+    # Calculate averages by maturity
+    maturity_data = []
+    for maturity_cat in ["New (<3mo)", "Young (3-6mo)", "Developing (6-12mo)", "Mature (1yr+)"]:
+        subset = ldf_maturity[ldf_maturity['maturity'] == maturity_cat]
+        if not subset.empty:
+            avg_ebitda = subset['ebitda_pct'].mean()
+            avg_labor = subset['labor_pct'].mean()
+            count = subset['stand_id'].nunique()
+            maturity_data.append({
+                "maturity": maturity_cat,
+                "ebitda_pct": avg_ebitda,
+                "labor_pct": avg_labor,
+                "count": count,
+            })
+
+    if maturity_data:
+        maturity_df = pd.DataFrame(maturity_data)
+
+        fig_maturity = go.Figure()
+        fig_maturity.add_bar(x=maturity_df['maturity'], y=maturity_df['ebitda_pct'],
+                            name="EBITDA %", marker_color=GOOD_TXT, opacity=0.8)
+        fig_maturity.add_bar(x=maturity_df['maturity'], y=maturity_df['labor_pct'],
+                            name="Labor %", marker_color=RED, opacity=0.8)
+        fig_maturity.update_layout(
+            template="plotly_dark",
+            paper_bgcolor=CHARCOAL, plot_bgcolor=CHARCOAL,
+            barmode="group",
+            yaxis=dict(title="% of Net Sales", tickformat=".0%", gridcolor="#404040"),
+            legend=dict(x=0, y=1.1, orientation="h"),
+            margin=dict(l=0,r=0,t=20,b=0), height=280,
+        )
+
+        col_mat_chart, col_mat_table = st.columns([2, 1])
+        with col_mat_chart:
+            st.plotly_chart(fig_maturity, use_container_width=True)
+
+        with col_mat_table:
+            mat_tbl = maturity_df.copy()
+            mat_tbl.columns = ["Maturity","EBITDA %","Labor %","Stands"]
+            mat_tbl["EBITDA %"] = mat_tbl["EBITDA %"].apply(fmt_pct)
+            mat_tbl["Labor %"] = mat_tbl["Labor %"].apply(fmt_pct)
+            st.dataframe(mat_tbl, use_container_width=True, hide_index=True, height=280)
 
     # ── Top / Bottom 10 ─────────────────────────────────────────────────────
     section(f"Top 10 vs Bottom 10 Mature Stores — EBITDA % ({selected_period})")
