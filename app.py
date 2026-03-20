@@ -289,30 +289,42 @@ def build_city_to_region_map():
 
     return city_region_map
 
+def get_city_region_mapping():
+    """Build city-to-region mapping from Stand Dates file"""
+    mapping = {}
+    stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
+
+    if stand_dates_file.exists():
+        try:
+            sd = pd.read_excel(stand_dates_file)
+            # Extract base city names and their regions
+            # E.g., "Lubbock 4" -> "Lubbock", "Lawton 2" -> "Lawton"
+            for _, row in sd.iterrows():
+                stand_name = str(row.get('Stand', '')).split('(')[0].strip()
+                region = row.get('Region', '')
+                # Extract base city (remove numbers and suffixes)
+                import re
+                base_city = re.sub(r'\s+\d+$|\s+\d+$', '', stand_name).strip()
+                if base_city and region:
+                    mapping[base_city.lower()] = region
+        except:
+            pass
+
+    return mapping
+
 def apply_filters(df, period, region, cohorts):
     ldf = df[df['period_label'] == period].copy()
 
+    # Build city-to-region mapping if not already cached
+    if not hasattr(apply_filters, '_city_region_map'):
+        apply_filters._city_region_map = get_city_region_mapping()
+
+    # Map cities to regions
+    ldf['region_mapped'] = ldf['city'].str.lower().map(apply_filters._city_region_map).fillna(ldf['region'])
+
     # Use provided region for filtering
     if region != "All":
-        # Check if filtering by the official regions
-        stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-        if stand_dates_file.exists():
-            try:
-                sd = pd.read_excel(stand_dates_file)
-                official_regions = sd['Region'].dropna().unique()
-                if region in official_regions:
-                    # Filter by matching cities that belong to this region
-                    matching_cities = sd[sd['Region'] == region]['Stand'].apply(
-                        lambda x: x.split('(')[0].strip().lower()
-                    ).unique()
-                    ldf = ldf[ldf['city'].str.lower().isin(matching_cities)]
-                else:
-                    # Fall back to original region filter
-                    ldf = ldf[ldf['region'] == region]
-            except:
-                ldf = ldf[ldf['region'] == region]
-        else:
-            ldf = ldf[ldf['region'] == region]
+        ldf = ldf[ldf['region_mapped'] == region]
 
     if cohorts:
         ldf = ldf[ldf['cohort'].isin(cohorts)]
@@ -415,34 +427,53 @@ def tab_trends(df, ldf, periods, selected_period):
     trend_data['labor_pct'] = trend_data['labor'] / trend_data['net_sales']
     trend_data['ebitda_pct'] = trend_data['store_ebitda'] / trend_data['net_sales']
 
-    # Metrics selector
-    metric_choice = st.radio("Select Metric to Analyze",
-                            ["EBITDA %", "COGS %", "Labor %", "Net Sales"],
-                            horizontal=True)
+    # Metrics selector with section titles
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.markdown("### 💰 Sales")
+        metric_choice = st.radio("View", ["Net Sales"], label_visibility="collapsed", key="sales_radio")
+    with col2:
+        st.markdown("### 📦 COGS")
+        cogs_choice = st.radio("View", ["COGS %"], label_visibility="collapsed", key="cogs_radio")
+    with col3:
+        st.markdown("### 👥 Labor")
+        labor_choice = st.radio("View", ["Labor %"], label_visibility="collapsed", key="labor_radio")
+    with col4:
+        st.markdown("### 📊 EBITDA")
+        ebitda_choice = st.radio("View", ["EBITDA %"], label_visibility="collapsed", key="ebitda_radio")
+
+    # Determine which metric was selected
+    metric_choice = "Net Sales"  # Default to Sales tab
+    selected_tab = st.radio("Select Section", ["Sales", "COGS", "Labor", "EBITDA"], horizontal=True, label_visibility="collapsed")
 
     col_chart, col_stats = st.columns([3, 1])
 
     with col_chart:
         fig = go.Figure()
 
-        if metric_choice == "EBITDA %":
+        if selected_tab == "EBITDA":
             fig.add_scatter(x=trend_data['period_label'], y=trend_data['ebitda_pct']*100,
                           mode='lines+markers', name='EBITDA %',
                           line=dict(color=WIN_GREEN, width=3),
                           marker=dict(size=8))
-        elif metric_choice == "COGS %":
+            metric_label = "EBITDA %"
+        elif selected_tab == "COGS":
             fig.add_scatter(x=trend_data['period_label'], y=trend_data['cogs_pct']*100,
                           mode='lines+markers', name='COGS %',
                           line=dict(color=WARN_YELLOW, width=3),
                           marker=dict(size=8))
-        elif metric_choice == "Labor %":
+            metric_label = "COGS %"
+        elif selected_tab == "Labor":
             fig.add_scatter(x=trend_data['period_label'], y=trend_data['labor_pct']*100,
                           mode='lines+markers', name='Labor %',
                           line=dict(color=INFO_BLUE, width=3),
                           marker=dict(size=8))
-        else:
+            metric_label = "Labor %"
+        else:  # Sales
             fig.add_bar(x=trend_data['period_label'], y=trend_data['net_sales'],
                        name='Net Sales', marker_color=RED, opacity=0.8)
+            metric_label = "Net Sales"
 
         fig.update_layout(
             template="plotly_dark",
@@ -457,16 +488,16 @@ def tab_trends(df, ldf, periods, selected_period):
             latest = trend_data.iloc[-1]
             prior = trend_data.iloc[-2]
 
-            if metric_choice == "EBITDA %":
+            if selected_tab == "EBITDA":
                 chg = latest['ebitda_pct'] - prior['ebitda_pct']
                 val = f"{latest['ebitda_pct']:.1%}"
-            elif metric_choice == "COGS %":
+            elif selected_tab == "COGS":
                 chg = latest['cogs_pct'] - prior['cogs_pct']
                 val = f"{latest['cogs_pct']:.1%}"
-            elif metric_choice == "Labor %":
+            elif selected_tab == "Labor":
                 chg = latest['labor_pct'] - prior['labor_pct']
                 val = f"{latest['labor_pct']:.1%}"
-            else:
+            else:  # Sales
                 chg = latest['net_sales'] - prior['net_sales']
                 val = fmt_dollar(latest['net_sales'], mm=True)
 
@@ -476,12 +507,12 @@ def tab_trends(df, ldf, periods, selected_period):
                        unsafe_allow_html=True)
 
             arrow = "↑" if chg >= 0 else "↓"
-            color = "green" if metric_choice in ["EBITDA %","Net Sales"] and chg >= 0 else "red"
-            if metric_choice in ["COGS %","Labor %"]:
+            color = "green" if selected_tab in ["EBITDA","Sales"] and chg >= 0 else "red"
+            if selected_tab in ["COGS","Labor"]:
                 color = "red" if chg >= 0 else "green"
 
             st.markdown(f"<div style='text-align:center;color:{color};font-size:18px;margin-top:12px;'>"
-                       f"{arrow} {abs(chg):.2f}{'%' if '%' in metric_choice else ''}</div>",
+                       f"{arrow} {abs(chg):.2f}{'%' if '%' in metric_label else ''}</div>",
                        unsafe_allow_html=True)
 
 def tab_stands(df, ldf, periods, selected_period):
@@ -554,30 +585,23 @@ def tab_regions(df, ldf, periods, selected_period):
     """Regions Tab - Regional analysis and comparison"""
     st.markdown('<div class="section-title">Regional Analysis</div>', unsafe_allow_html=True)
 
-    # Load region definitions and map cities to regions
+    # Get region mapping and order
     stand_dates_file = DATA_DIR / "7Crew_Stand_Dates.xlsx"
-    city_to_region = {}
+    city_to_region = get_city_region_mapping()
     region_order = []
 
     if stand_dates_file.exists():
         try:
             stand_dates = pd.read_excel(stand_dates_file)
             region_order = stand_dates['Region'].dropna().unique().tolist()
-            # Map each city to its region
-            for _, row in stand_dates.iterrows():
-                stand_name = str(row.get('Stand', ''))
-                region = row.get('Region', '')
-                city = stand_name.split('(')[0].strip().lower()
-                if city and region:
-                    city_to_region[city] = region
         except Exception as e:
-            st.warning(f"Could not load region definitions: {e}")
+            st.warning(f"Could not load region order: {e}")
 
-    # Add region mapping to ldf based on city
-    if city_to_region:
+    # Add region mapping to ldf based on city (if not already mapped in filters)
+    if 'region_mapped' not in ldf.columns:
         ldf['region_mapped'] = ldf['city'].str.lower().map(city_to_region).fillna(ldf['region'])
     else:
-        ldf['region_mapped'] = ldf['region']
+        ldf['region_mapped'] = ldf['region_mapped']
 
     # Regional metrics - group by mapped regions
     region_data = ldf.groupby('region_mapped').agg(
