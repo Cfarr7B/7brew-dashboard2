@@ -408,14 +408,27 @@ def tab_coo(df, ldf, periods, selected_period):
     ldf2['status']     = ldf2.apply(
         lambda r: "⚡ Ramp" if r['is_ramp'] else ("🔵 Q4 Watch" if r['is_q4'] else "Mature"), axis=1)
 
+    # Add EBITDA % indicator (colored circle based on threshold)
+    def ebitda_indicator(ep):
+        if pd.isna(ep) or ep is None:
+            return "⚪"
+        if ep >= 0.15:
+            return "🟢"  # ≥15%
+        elif ep >= 0.10:
+            return "🟡"  # 10-14%
+        else:
+            return "🔴"  # <10%
+
+    ldf2['ebitda_indicator'] = ldf2['ebitda_pct'].apply(ebitda_indicator)
+
     display_cols = ['display_name','region','cohort','periods_open','status',
-                    'Net Sales','delta_ns','cogs_pct','labor_pct','ebitda_pct',
+                    'Net Sales','delta_ns','cogs_pct','labor_pct','ebitda_indicator','ebitda_pct',
                     'Store Level EBITDA']
     rename_map = {'display_name':'Stand','region':'Region','cohort':'Cohort',
                   'periods_open':'Periods Open','status':'Status',
                   'Net Sales':'Net Sales','delta_ns':'Δ vs Prior',
                   'cogs_pct':'COGS %','labor_pct':'Labor %',
-                  'ebitda_pct':'EBITDA %','Store Level EBITDA':'EBITDA $'}
+                  'ebitda_indicator':'EBITDA Status','ebitda_pct':'EBITDA %','Store Level EBITDA':'EBITDA $'}
 
     tbl = ldf2.sort_values(['region','cohort','ebitda_pct'],
                            ascending=[True,True,False])[display_cols].rename(columns=rename_map)
