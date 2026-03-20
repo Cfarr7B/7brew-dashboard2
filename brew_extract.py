@@ -290,6 +290,44 @@ def add_derived_metrics(df):
     df['Rent %'] = df['Total Rent'] / ns
     df['Marketing %'] = df['Total Marketing'] / ns
 
+    # L4A (Last 4 Weeks Annualized) - current period sales annualized
+    # Assumes each P&L period = 4 weeks, so annualize by * 13
+    df['L4A'] = df['Net Sales'] * 13
+
+    # Derive opening_date from scheduled_open_date or cohort
+    def get_opening_date(row):
+        # Use scheduled date if available
+        if pd.notna(row.get('scheduled_open_date')):
+            try:
+                return pd.to_datetime(row['scheduled_open_date'])
+            except:
+                pass
+
+        # Otherwise derive from cohort (use Q start date as approximation)
+        cohort = row.get('cohort')
+        if cohort and cohort != 'Q4\'24':
+            try:
+                # Extract year and quarter from cohort like "Q4'25"
+                import re
+                match = re.match(r"Q(\d)'(\d+)", cohort)
+                if match:
+                    q = int(match.group(1))
+                    yr_2digit = int(match.group(2))
+                    yr = 2000 + yr_2digit if yr_2digit < 100 else yr_2digit
+                    # Use first month of quarter
+                    month = (q - 1) * 3 + 1
+                    return pd.Timestamp(year=yr, month=month, day=1)
+            except:
+                pass
+
+        # For Q4'24 (legacy/original stands), use a default
+        if cohort == 'Q4\'24':
+            return pd.Timestamp(year=2024, month=10, day=1)  # Approximate Q4 2024 start
+
+        return None
+
+    df['opening_date'] = df.apply(get_opening_date, axis=1)
+
     return df
 
 def build_dataset(input_folder, file_pattern='7BREW Income Statement Side By Side PTD All*.xlsx'):

@@ -588,11 +588,22 @@ def tab_q4(df, ldf, periods, selected_period):
             traj = "↑ New" if t_c>0 else "Opening"
 
         ep_v = r['ep']
+
+        # Format opening date
+        opening_date_str = ""
+        if pd.notna(r.get('opening_date')):
+            opening_date_str = r['opening_date'].strftime('%m/%d/%Y')
+
+        # L4A (Last 4 Weeks Annualized)
+        l4a = r.get('L4A', np.nan)
+
         rows.append({
             "Stand":        r['display_name'],
             "Cohort":       r['cohort'],
+            "Open Date":    opening_date_str,
             "Periods Open": int(r['periods_open']),
             "Net Sales":    fmt_dollar(r['Net Sales']),
+            "L4A":          fmt_dollar(l4a),
             "vs Q4 Avg":    fmt_dollar((r['Net Sales'] - q4_avg_ns) if q4_avg_ns else None),
             "COGS %":       fmt_pct(r.get('cogs_pct')),
             "Labor %":      fmt_pct(r.get('labor_pct')),
